@@ -38,6 +38,20 @@ pub enum ServiceAction {
     Start,
 }
 
+/// A ServiceKind-agnostic read on whether the service is up. The push/pull state
+/// machine polls this to decide when Stopping/Starting have actually settled — it
+/// cannot compare `ServiceAction::Status`'s raw stdout itself, since that vocabulary
+/// differs per ServiceKind (systemd: active/inactive/failed; docker: running/exited;
+/// process: pgrep output). Normalizing here is what keeps the state machine agnostic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RunState {
+    Running,
+    Stopped,
+    Failed,
+    Unknown,
+}
+
 /// Result of running a command on the target (SPEC's `Command`/`Output` are collapsed
 /// into a plain shell string in and this struct out — every discovery/service-control
 /// command in SPEC §8/§4 is already a shell one-liner, so a typed command builder would
@@ -78,9 +92,19 @@ pub trait ServerTarget: Send + Sync {
     /// alongside the log drawer UI, not here.
     async fn logs_tail(&self, lines: u32) -> anyhow::Result<String>;
     async fn service_control(&self, action: ServiceAction) -> anyhow::Result<ExecOutput>;
+    /// Normalized run state, for control-flow decisions (see `RunState`). Distinct from
+    /// `service_control(Status)`, which returns the ServiceKind's raw status text —
+    /// useful for display, useless for "is it safe to proceed" logic.
+    async fn status(&self) -> anyhow::Result<RunState>;
     /// When the service last (re)started, if the ServiceKind can report it (systemd's
     /// `ActiveEnterTimestamp`, docker's `State.StartedAt`); `None` for Process targets.
     async fn active_since(&self) -> anyhow::Result<Option<String>>;
+    /// Raw lines showing the game's UDP port bound and listening (SPEC §10 / the push
+    /// envelope's Verifying step). Genuinely ServiceKind-specific: a plain "grep the
+    /// process name" check that works for systemd/process targets finds nothing for
+    /// Docker, where the host only ever sees `docker-proxy` (or the container's own
+    /// network namespace entirely, under `--network host`).
+    async fn udp_listening(&self) -> anyhow::Result<Vec<String>>;
     async fn fix_perms(&self, path: &str) -> anyhow::Result<()>;
     fn worlds_path(&self) -> &str;
     fn service_kind(&self) -> &ServiceKind;

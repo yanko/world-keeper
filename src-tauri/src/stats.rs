@@ -34,11 +34,7 @@ pub async fn collect(target: &dyn ServerTarget) -> anyhow::Result<ServerStats> {
         .to_string();
     let active_since = target.active_since().await.unwrap_or(None);
 
-    let udp_listening = target
-        .exec("ss -ulnp 2>/dev/null | grep -i corekeeper")
-        .await
-        .map(|out| out.stdout.lines().map(str::to_string).collect())
-        .unwrap_or_default();
+    let udp_listening = udp_listening(target).await;
 
     let (mem_total_kb, mem_available_kb) = match target.exec("cat /proc/meminfo 2>/dev/null").await
     {
@@ -82,6 +78,12 @@ pub async fn collect(target: &dyn ServerTarget) -> anyhow::Result<ServerStats> {
         uptime_seconds,
         recent_log_tail,
     })
+}
+
+/// Raw `ss -ulnp` lines mentioning corekeeper (best-effort). Shared with the push
+/// state machine's Verifying step, which needs the same "is the port up" check.
+pub async fn udp_listening(target: &dyn ServerTarget) -> Vec<String> {
+    target.udp_listening().await.unwrap_or_default()
 }
 
 fn parse_meminfo(text: &str) -> (Option<u64>, Option<u64>) {

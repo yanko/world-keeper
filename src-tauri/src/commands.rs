@@ -7,10 +7,15 @@ use tauri::{AppHandle, State};
 
 use crate::config::{self, AppConfig, Discovered, Profile};
 use crate::discovery::{self, DiscoveryResult};
+use crate::keygen;
+use crate::localworld::{self, LocalWorldCandidate};
+use crate::pull::{self, PulledWorld, RemoteWorldInfo};
+use crate::push::{self, PushResult};
 use crate::secrets;
 use crate::ssh::{SshSession, SshTarget};
 use crate::state::{AppState, Connection};
 use crate::stats::{self, ServerStats};
+use crate::target::ServerTarget;
 
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
@@ -76,7 +81,7 @@ pub async fn connect(
     app: AppHandle,
     state: State<'_, AppState>,
     profile_id: String,
-    password: String,
+    password: Option<String>,
 ) -> Result<ConnectResult, String> {
     let cfg = config::load(&app).map_err(err)?;
     let profile = cfg
@@ -86,14 +91,35 @@ pub async fn connect(
         .cloned()
         .ok_or_else(|| format!("no such profile: {profile_id}"))?;
 
-    let session =
-        SshSession::connect_password(&profile.host, profile.port, &profile.user, &password)
+    let (session, auth_method) = match profile.auth {
+        config::AuthMethod::Key => {
+            let key_path = profile
+                .key_path
+                .as_deref()
+                .ok_or("this profile is set to key auth but has no keyPath")?;
+            let session = SshSession::connect_key(
+                &profile.host,
+                profile.port,
+                &profile.user,
+                std::path::Path::new(key_path),
+            )
             .await
             .map_err(err)?;
+            (session, "key")
+        }
+        config::AuthMethod::Password => {
+            let password = password.ok_or("password required for this profile")?;
+            let session =
+                SshSession::connect_password(&profile.host, profile.port, &profile.user, &password)
+                    .await
+                    .map_err(err)?;
+            (session, "password")
+        }
+    };
 
     state
         .audit
-        .record_connect(state.session_id, &profile.id, &profile.host, &profile.user, "password")
+        .record_connect(state.session_id, &profile.id, &profile.host, &profile.user, auth_method)
         .await
         .map_err(err)?;
     state
@@ -153,6 +179,59 @@ pub async fn disconnect(state: State<'_, AppState>) -> Result<(), String> {
             .map_err(err)?;
     }
     Ok(())
+}
+
+/// SPEC §6's "one-time setup helper": generates a fresh keypair, installs the public
+/// key on the currently-connected host via the live session, and switches the profile
+/// over to key auth. Requires an existing connection (any auth method) — meant to run
+/// right after a first password connect, not as a way to connect in the first place.
+#[tauri::command]
+pub async fn setup_key_auth(app: AppHandle, state: State<'_, AppState>) -> Result<Profile, String> {
+    let profile_id = {
+        let guard = state.connection.lock().await;
+        guard.as_ref().ok_or("not connected")?.profile_id().to_string()
+    };
+
+    let cfg = config::load(&app).map_err(err)?;
+    let profile = cfg
+        .profiles
+        .iter()
+        .find(|p| p.id == profile_id)
+        .cloned()
+        .ok_or_else(|| format!("no such profile: {profile_id}"))?;
+
+    let generated = keygen::generate_for_profile(&app, &profile_id, "ck-world-manager")
+        .await
+        .map_err(err)?;
+
+    {
+        let guard = state.connection.lock().await;
+        let conn = guard.as_ref().ok_or("not connected")?;
+        conn.session()
+            .install_public_key(&generated.public_key_line)
+            .await
+            .map_err(err)?;
+    }
+
+    let mut updated = profile;
+    updated.auth = config::AuthMethod::Key;
+    updated.key_path = Some(generated.private_key_path.to_string_lossy().to_string());
+    updated.save_password = false;
+    config::upsert_profile(&app, updated.clone()).map_err(err)?;
+
+    state
+        .audit
+        .log_event(
+            state.session_id,
+            "key_auth_setup",
+            None,
+            Some(&serde_json::json!({ "profileId": profile_id })),
+            Some(true),
+        )
+        .await
+        .map_err(err)?;
+
+    Ok(updated)
 }
 
 #[tauri::command]
@@ -242,4 +321,92 @@ pub async fn get_stats(state: State<'_, AppState>) -> Result<ServerStats, String
         Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
         None => Err("not connected".to_string()),
     }
+}
+
+/// Just the log tail, polled on its own (e.g. by the live log drawer) — deliberately
+/// separate from `get_stats` so watching the log doesn't also re-fetch mem/disk/uptime
+/// on every poll tick.
+#[tauri::command]
+pub async fn get_log_tail(state: State<'_, AppState>, lines: u32) -> Result<String, String> {
+    let guard = state.connection.lock().await;
+    match guard.as_ref() {
+        Some(Connection::Target { target, .. }) => target.logs_tail(lines).await.map_err(err),
+        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
+        None => Err("not connected".to_string()),
+    }
+}
+
+// ---- push --------------------------------------------------------------------
+
+/// `path` is whatever the frontend's native dialog (folder / .zip / single file)
+/// returned. Local-only, no connection required.
+#[tauri::command]
+pub async fn resolve_local_world(path: String) -> Result<Vec<LocalWorldCandidate>, String> {
+    localworld::resolve_local_world(std::path::Path::new(&path))
+        .await
+        .map_err(err)
+}
+
+/// Runs the full safe-swap envelope (SPEC §7) against the currently confirmed target,
+/// emitting `push-progress` events as it goes. Stops the live server for the duration.
+#[tauri::command]
+pub async fn push_world(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    candidate: LocalWorldCandidate,
+) -> Result<PushResult, String> {
+    let guard = state.connection.lock().await;
+    match guard.as_ref() {
+        Some(Connection::Target { target, .. }) => {
+            push::run_push(&app, &state.audit, state.session_id, target, &candidate)
+                .await
+                .map_err(err)
+        }
+        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
+        None => Err("not connected".to_string()),
+    }
+}
+
+// ---- pull --------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn list_remote_worlds(state: State<'_, AppState>) -> Result<Vec<RemoteWorldInfo>, String> {
+    let guard = state.connection.lock().await;
+    match guard.as_ref() {
+        Some(Connection::Target { target, .. }) => pull::list_remote_worlds(target).await.map_err(err),
+        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
+        None => Err("not connected".to_string()),
+    }
+}
+
+/// Runs SPEC §7's pull envelope (stop → download → restart) against the currently
+/// confirmed target, emitting `pull-progress` events. Local packaging is a separate
+/// step (`package_pulled_world`) that happens after the server's already back up.
+#[tauri::command]
+pub async fn pull_world(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    slot: u32,
+) -> Result<PulledWorld, String> {
+    let guard = state.connection.lock().await;
+    match guard.as_ref() {
+        Some(Connection::Target { target, .. }) => {
+            pull::run_pull(&app, &state.audit, state.session_id, target, slot)
+                .await
+                .map_err(err)
+        }
+        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
+        None => Err("not connected".to_string()),
+    }
+}
+
+/// Saves a previously pulled world (still sitting in a temp dir) as a folder or a
+/// `.zip`, then cleans up the temp files. Purely local — no connection required.
+#[tauri::command]
+pub async fn package_pulled_world(
+    pulled: PulledWorld,
+    destination: String,
+    as_zip: bool,
+) -> Result<String, String> {
+    pull::package_pulled(&pulled, &destination, as_zip).await.map_err(err)
 }

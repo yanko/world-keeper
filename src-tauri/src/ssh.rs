@@ -16,7 +16,7 @@ use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::target::{ExecOutput, FileEntry, ServerTarget, ServiceAction, ServiceKind};
+use crate::target::{ExecOutput, FileEntry, RunState, ServerTarget, ServiceAction, ServiceKind};
 
 /// Wraps a string for safe interpolation into a remote shell command (single-quoted,
 /// with embedded quotes escaped). Needed because real paths here contain spaces, e.g.
@@ -75,6 +75,55 @@ impl SshSession {
             port,
             user: user.to_string(),
         })
+    }
+
+    /// SPEC §6: key auth, primary once set up. `key_path` is an OpenSSH-format private
+    /// key file — either one the user already had (`profile.keyPath`) or one this app
+    /// generated itself (`keygen.rs`).
+    pub async fn connect_key(host: &str, port: u16, user: &str, key_path: &Path) -> Result<Self> {
+        let config = Arc::new(client::Config::default());
+        let mut handle = client::connect(config, (host, port), Client)
+            .await
+            .with_context(|| format!("connecting to {host}:{port}"))?;
+
+        let key_pair = russh::keys::load_secret_key(key_path, None)
+            .with_context(|| format!("loading private key {}", key_path.display()))?;
+        let hash_alg = handle.best_supported_rsa_hash().await?.flatten();
+        let auth = handle
+            .authenticate_publickey(
+                user,
+                russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key_pair), hash_alg),
+            )
+            .await
+            .context("public-key authentication")?;
+        if !auth.success() {
+            bail!("public-key authentication rejected for {user}@{host}");
+        }
+
+        Ok(Self {
+            handle: Arc::new(handle),
+            host: host.to_string(),
+            port,
+            user: user.to_string(),
+        })
+    }
+
+    /// Appends a public key line to `~/.ssh/authorized_keys` on this session's host —
+    /// the "one-time setup helper" from SPEC §6. Idempotent: safe to run again with the
+    /// same key.
+    pub async fn install_public_key(&self, public_key_line: &str) -> Result<()> {
+        let line = public_key_line.trim();
+        let cmd = format!(
+            "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && \
+             chmod 600 ~/.ssh/authorized_keys && (grep -qF {} ~/.ssh/authorized_keys || echo {} >> ~/.ssh/authorized_keys)",
+            shq(line),
+            shq(line)
+        );
+        let out = self.exec(&cmd).await?;
+        if !out.success() {
+            bail!("installing public key failed: {}", out.stderr.trim());
+        }
+        Ok(())
     }
 
     pub async fn exec(&self, cmd: &str) -> Result<ExecOutput> {
@@ -283,6 +332,42 @@ impl ServerTarget for SshTarget {
         self.session.exec(&cmd).await
     }
 
+    async fn status(&self) -> Result<RunState> {
+        match &self.service_kind {
+            ServiceKind::Systemd { unit } => {
+                let out = self.session.exec(&format!("systemctl is-active {}", shq(unit))).await?;
+                Ok(match out.stdout.trim() {
+                    "active" => RunState::Running,
+                    "inactive" => RunState::Stopped,
+                    "failed" => RunState::Failed,
+                    _ => RunState::Unknown,
+                })
+            }
+            ServiceKind::Docker { container } => {
+                let out = self
+                    .session
+                    .exec(&format!(
+                        "docker inspect -f {{{{.State.Status}}}} {}",
+                        shq(container)
+                    ))
+                    .await?;
+                Ok(match out.stdout.trim() {
+                    "running" => RunState::Running,
+                    "exited" | "created" | "dead" | "paused" => RunState::Stopped,
+                    _ => RunState::Unknown,
+                })
+            }
+            ServiceKind::Process { start_cmd, .. } => {
+                let out = self.session.exec(&format!("pgrep -f {}", shq(start_cmd))).await?;
+                Ok(if out.stdout.trim().is_empty() {
+                    RunState::Stopped
+                } else {
+                    RunState::Running
+                })
+            }
+        }
+    }
+
     async fn active_since(&self) -> Result<Option<String>> {
         let cmd = match &self.service_kind {
             ServiceKind::Systemd { unit } => {
@@ -296,6 +381,61 @@ impl ServerTarget for SshTarget {
         let out = self.session.exec(&cmd).await?;
         let value = out.stdout.trim();
         Ok(if value.is_empty() { None } else { Some(value.to_string()) })
+    }
+
+    async fn udp_listening(&self) -> Result<Vec<String>> {
+        match &self.service_kind {
+            ServiceKind::Systemd { .. } | ServiceKind::Process { .. } => {
+                let out = self
+                    .session
+                    .exec("ss -ulnp 2>/dev/null | grep -i corekeeper")
+                    .await?;
+                Ok(out.stdout.lines().map(str::to_string).collect())
+            }
+            ServiceKind::Docker { container } => {
+                // The host only ever sees `docker-proxy` (or nothing at all, under
+                // `--network host`) — never a process named "corekeeper" — so resolve
+                // the container's published host port(s) first and check those
+                // directly. Falls back to checking from inside the container when
+                // nothing is published (host networking).
+                let ports_out = self
+                    .session
+                    .exec(&format!("docker port {} 2>/dev/null | grep -i udp", shq(container)))
+                    .await?;
+                let host_ports: Vec<String> = ports_out
+                    .stdout
+                    .lines()
+                    .filter_map(|line| {
+                        line.split("->")
+                            .nth(1)?
+                            .trim()
+                            .rsplit(':')
+                            .next()
+                            .map(|p| p.trim().to_string())
+                    })
+                    .collect();
+
+                if !host_ports.is_empty() {
+                    let pattern = format!(":({})\\b", host_ports.join("|"));
+                    let out = self
+                        .session
+                        .exec(&format!("ss -uln 2>/dev/null | grep -E {}", shq(&pattern)))
+                        .await?;
+                    return Ok(out.stdout.lines().map(str::to_string).collect());
+                }
+
+                let out = self
+                    .session
+                    .exec(&format!("docker exec {} ss -uln 2>/dev/null", shq(container)))
+                    .await?;
+                Ok(out
+                    .stdout
+                    .lines()
+                    .filter(|l| !l.trim_start().starts_with("State"))
+                    .map(str::to_string)
+                    .collect())
+            }
+        }
     }
 
     async fn fix_perms(&self, path: &str) -> Result<()> {

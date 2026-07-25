@@ -1,6 +1,11 @@
 mod audit;
 mod commands;
 mod config;
+mod envelope;
+mod keygen;
+mod localworld;
+mod pull;
+mod push;
 mod secrets;
 mod state;
 mod stats;
@@ -27,6 +32,7 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let app_handle = app.handle().clone();
             let app_state = tauri::async_runtime::block_on(async move {
@@ -62,9 +68,16 @@ pub fn run() {
             commands::delete_saved_password,
             commands::connect,
             commands::disconnect,
+            commands::setup_key_auth,
             commands::run_discovery,
             commands::confirm_discovery,
             commands::get_stats,
+            commands::get_log_tail,
+            commands::resolve_local_world,
+            commands::push_world,
+            commands::list_remote_worlds,
+            commands::pull_world,
+            commands::package_pulled_world,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

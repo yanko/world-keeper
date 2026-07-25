@@ -35,7 +35,7 @@ interface ConnectionBarProps {
   onSelectProfile: (id: string) => void;
   onConfigChanged: (config: AppConfig) => void;
   status: ConnectionStatus;
-  onConnect: (profileId: string, password: string) => Promise<void>;
+  onConnect: (profileId: string, password?: string) => Promise<void>;
   onDisconnect: () => void;
 }
 
@@ -55,6 +55,8 @@ export function ConnectionBar({
   const [pwOpen, setPwOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [keyAuthOpen, setKeyAuthOpen] = useState(false);
+  const [settingUpKeyAuth, setSettingUpKeyAuth] = useState(false);
 
   const selectedProfile = config.profiles.find((p) => p.id === selectedProfileId) ?? null;
 
@@ -85,10 +87,17 @@ export function ConnectionBar({
     }
   }
 
-  function startConnect() {
+  async function startConnect() {
     if (!selectedProfile) return;
     if (selectedProfile.auth === "key") {
-      toast.error("Key auth isn't wired up yet — use a password profile for now.");
+      setConnecting(true);
+      try {
+        await onConnect(selectedProfile.id);
+      } catch (e) {
+        toast.error(String(e));
+      } finally {
+        setConnecting(false);
+      }
       return;
     }
     setPwOpen(true);
@@ -105,6 +114,21 @@ export function ConnectionBar({
       toast.error(String(e));
     } finally {
       setConnecting(false);
+    }
+  }
+
+  async function setUpKeyAuth() {
+    setKeyAuthOpen(false);
+    setSettingUpKeyAuth(true);
+    try {
+      await api.setupKeyAuth();
+      const cfg = await api.getConfig();
+      onConfigChanged(cfg);
+      toast.success("Key auth set up — future connects won't need the password.");
+    } catch (e) {
+      toast.error(String(e));
+    } finally {
+      setSettingUpKeyAuth(false);
     }
   }
 
@@ -166,6 +190,17 @@ export function ConnectionBar({
 
       <Badge variant={statusVariant[status]}>{statusLabel[status]}</Badge>
 
+      {status !== "disconnected" && selectedProfile?.auth === "password" && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={settingUpKeyAuth}
+          onClick={() => setKeyAuthOpen(true)}
+        >
+          {settingUpKeyAuth ? "Setting up key auth…" : "Set up key auth"}
+        </Button>
+      )}
+
       <div className="ml-auto">
         <ThemeToggle />
       </div>
@@ -176,8 +211,9 @@ export function ConnectionBar({
           <DialogHeader>
             <DialogTitle>New connection profile</DialogTitle>
             <DialogDescription>
-              SSH connection details. Password auth only for now — key auth is a later
-              build phase.
+              SSH connection details. New profiles start on password auth — once
+              connected, use "Set up key auth" to switch to a key so you won't need to
+              retype the password.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
@@ -240,6 +276,26 @@ export function ConnectionBar({
             <Button onClick={submitPassword} disabled={connecting || !password}>
               {connecting ? "Connecting…" : "Connect"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Key auth setup confirm */}
+      <Dialog open={keyAuthOpen} onOpenChange={setKeyAuthOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set up key auth for {selectedProfile?.name}?</DialogTitle>
+            <DialogDescription>
+              Generates a new SSH key (kept locally, never sent anywhere but this host's
+              <span className="font-mono"> ~/.ssh/authorized_keys</span>) and switches
+              this profile to key auth. You won't need to type the password again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setKeyAuthOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={setUpKeyAuth}>Generate &amp; install key</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

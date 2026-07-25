@@ -119,10 +119,10 @@ export function DiscoveryConfirm({
                 value={candidateIdx}
                 onValueChange={(v) => setCandidateIdx(v ?? undefined)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="max-w-full min-w-40">
                   <SelectValue placeholder="Pick the real Core Keeper service…" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="w-auto min-w-72" alignItemWithTrigger={false}>
                   {result.serviceKindCandidates.map((c, i) => (
                     <SelectItem key={i} value={String(i)}>
                       {serviceKindLabel(c.kind)}
@@ -151,10 +151,10 @@ export function DiscoveryConfirm({
             <div className="rounded-md border p-2 font-mono text-sm">{result.worldsPath}</div>
           ) : result.worldsPathCandidates.length > 0 ? (
             <Select value={worldsPath} onValueChange={(v) => setWorldsPath(v ?? undefined)}>
-              <SelectTrigger>
+              <SelectTrigger className="max-w-full min-w-40">
                 <SelectValue placeholder="Pick the worlds directory…" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-auto min-w-72" alignItemWithTrigger={false}>
                 {result.worldsPathCandidates.map((p) => (
                   <SelectItem key={p} value={p} className="font-mono">
                     {p}

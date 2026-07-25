@@ -15,10 +15,13 @@ use crate::ssh::{shq, SshSession};
 use crate::target::ServiceKind;
 
 /// A systemd/docker/process hit that *matched* the "looks like Core Keeper" grep but
-/// couldn't be auto-selected because it wasn't the only one. Carries enough of its own
-/// `systemctl cat` output for a human to tell "corekeeper" apart from, say, an unrelated
-/// "corekeeper-api" sidecar — real ambiguity seen on the reference LXC (SPEC's `Process`/
-/// `Docker` variants don't need this yet since only the systemd probe has hit it).
+/// couldn't be auto-selected because it wasn't the only one. Carries enough identifying
+/// detail for a human to tell "corekeeper" apart from, say, an unrelated "corekeeper-api"
+/// sidecar — real ambiguity seen on the reference LXC's systemd units, and the same
+/// grep-can-multi-match risk applies to the docker probe below.
+///
+/// `exec_start` doubles up across ServiceKinds: systemd's literal `ExecStart=` line, or
+/// docker's image name — both answer "what does this actually run."
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceKindCandidate {
@@ -90,23 +93,45 @@ impl ServiceKindProbe {
     }
 }
 
+/// How closely a discovered name matches "core keeper" — 0 is closest. Used only to
+/// *order* multiple candidates (best guess sorts first, which the confirmation UI
+/// pre-selects) — never to silently auto-pick one instead of showing the full list
+/// (SPEC §8: always confirm). Hyphen/underscore/case-insensitive, so "core-keeper" and
+/// "corekeeper" tie for rank 0; a suffixed lookalike like "core-keeper-api" ranks below.
+fn specificity_rank(name: &str) -> u8 {
+    let normalized: String = name
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect::<String>()
+        .to_lowercase();
+    if normalized == "corekeeper" {
+        0
+    } else if normalized.starts_with("corekeeper") || normalized.ends_with("corekeeper") {
+        1
+    } else {
+        2
+    }
+}
+
 /// Step B (SPEC §8): systemd, then docker, then a raw process, in that order — whichever
 /// actually serves Core Keeper wins if more than one is present. A `grep -i core` can
 /// still match more than one unrelated service (confirmed on the reference LXC: a
 /// `corekeeper-api` sidecar alongside the real `corekeeper` unit) — when that happens we
-/// refuse to guess and surface every match as a candidate instead.
+/// refuse to guess, but do sort the closest-looking match first so confirming is a
+/// single click instead of a coin flip.
 async fn probe_service_kind(session: &SshSession) -> ServiceKindProbe {
     // 1) systemd units
     if let Ok(out) = session
         .exec("systemctl list-units --type=service 2>/dev/null | grep -i core")
         .await
     {
-        let units: Vec<String> = out
+        let mut units: Vec<String> = out
             .stdout
             .lines()
             .filter_map(|line| line.split_whitespace().next())
             .map(|u| u.trim_end_matches(".service").to_string())
             .collect();
+        units.sort_by_key(|u| specificity_rank(u));
 
         if units.len() == 1 {
             let unit = units.into_iter().next().expect("len == 1");
@@ -137,20 +162,44 @@ async fn probe_service_kind(session: &SshSession) -> ServiceKindProbe {
         }
     }
 
-    // 2) docker container
+    // 2) docker containers — same "grep can match more than one thing" risk as
+    // systemd above, so the same fix applies: don't guess, surface every hit.
     if let Ok(out) = session
         .exec("docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -i core")
         .await
     {
-        if let Some(line) = out.stdout.lines().next() {
-            if let Some(container) = line.split_whitespace().next() {
-                return ServiceKindProbe {
-                    service_kind: Some(ServiceKind::Docker {
-                        container: container.to_string(),
-                    }),
-                    ..ServiceKindProbe::none()
-                };
-            }
+        let mut containers: Vec<(String, String)> = out
+            .stdout
+            .lines()
+            .filter_map(|line| {
+                let mut parts = line.split_whitespace();
+                let name = parts.next()?.to_string();
+                let image = parts.next().unwrap_or("").to_string();
+                Some((name, image))
+            })
+            .collect();
+        containers.sort_by_key(|(name, _)| specificity_rank(name));
+
+        if containers.len() == 1 {
+            let (container, _image) = containers.into_iter().next().expect("len == 1");
+            return ServiceKindProbe {
+                service_kind: Some(ServiceKind::Docker { container }),
+                ..ServiceKindProbe::none()
+            };
+        } else if containers.len() > 1 {
+            let candidates = containers
+                .into_iter()
+                .map(|(container, image)| ServiceKindCandidate {
+                    kind: ServiceKind::Docker { container },
+                    exec_start: (!image.is_empty()).then_some(image),
+                    working_directory: None,
+                    steam_user: None,
+                })
+                .collect();
+            return ServiceKindProbe {
+                candidates,
+                ..ServiceKindProbe::none()
+            };
         }
     }
 

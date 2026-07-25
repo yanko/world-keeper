@@ -4,9 +4,12 @@ import { toast } from "sonner";
 import "./App.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConnectionBar, type ConnectionStatus } from "@/components/ckm/ConnectionBar";
 import { DiscoveryConfirm } from "@/components/ckm/DiscoveryConfirm";
 import { StatsPanel } from "@/components/ckm/StatsPanel";
+import { PushPanel } from "@/components/ckm/PushPanel";
+import { PullPanel } from "@/components/ckm/PullPanel";
 import type { AppConfig, DiscoveryResult } from "@/lib/api";
 import * as api from "@/lib/api";
 
@@ -31,7 +34,7 @@ function App() {
     api.setActiveProfile(id).catch(() => {});
   }
 
-  async function handleConnect(profileId: string, password: string) {
+  async function handleConnect(profileId: string, password?: string) {
     setStatus("connecting");
     try {
       const result = await api.connect(profileId, password);
@@ -102,7 +105,24 @@ function App() {
           />
         )}
 
-        {status === "connected-target" && <StatsPanel />}
+        {status === "connected-target" && (
+          <Tabs defaultValue="stats" className="flex min-h-0 flex-1 flex-col gap-3">
+            <TabsList>
+              <TabsTrigger value="stats">Stats</TabsTrigger>
+              <TabsTrigger value="push">Push a world</TabsTrigger>
+              <TabsTrigger value="pull">Pull a world</TabsTrigger>
+            </TabsList>
+            <TabsContent value="stats" className="flex min-h-0 flex-1 flex-col">
+              <StatsPanel />
+            </TabsContent>
+            <TabsContent value="push" className="flex min-h-0 flex-1 flex-col">
+              <PushPanel />
+            </TabsContent>
+            <TabsContent value="pull" className="flex min-h-0 flex-1 flex-col">
+              <PullPanel />
+            </TabsContent>
+          </Tabs>
+        )}
 
         {status === "disconnected" && (
           <Card className="w-full">

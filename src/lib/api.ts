@@ -2,6 +2,8 @@
 // mirrors the Rust structs' `#[serde(rename_all = "camelCase")]` output exactly.
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { open, save } from "@tauri-apps/plugin-dialog";
 
 export type AuthMethod = "key" | "password";
 
@@ -104,10 +106,14 @@ export const deleteSavedPassword = (profileId: string) =>
 
 // ---- connection / discovery ---------------------------------------------------
 
-export const connect = (profileId: string, password: string) =>
+export const connect = (profileId: string, password?: string) =>
   invoke<ConnectResult>("connect", { profileId, password });
 
 export const disconnect = () => invoke<void>("disconnect");
+
+/** SPEC §6's one-time setup helper: generates a keypair, installs it on the currently
+ * connected host, and switches the profile to key auth. Requires an active connection. */
+export const setupKeyAuth = () => invoke<Profile>("setup_key_auth");
 
 export const runDiscovery = () => invoke<DiscoveryResult>("run_discovery");
 
@@ -117,3 +123,109 @@ export const confirmDiscovery = (profileId: string, discovered: Discovered) =>
 // ---- stats -----------------------------------------------------------------
 
 export const getStats = () => invoke<ServerStats>("get_stats");
+
+/** Just the log tail — used by the live log drawer so watching it doesn't also re-poll
+ * mem/disk/uptime on every tick. */
+export const getLogTail = (lines: number) => invoke<string>("get_log_tail", { lines });
+
+// ---- push --------------------------------------------------------------------
+
+export interface LocalWorldCandidate {
+  slot: number;
+  mainPath: string;
+  mainSize: number;
+  mainModified: number | null;
+  pugbackupPath: string | null;
+  pugbackupSize: number | null;
+}
+
+// A plain fieldless enum on the Rust side serializes as just its (camelCase) tag.
+export type PushState =
+  | "uploading"
+  | "checkingService"
+  | "stopping"
+  | "backingUp"
+  | "copying"
+  | "fixingPerms"
+  | "starting"
+  | "capturingGameId"
+  | "verifying"
+  | "done"
+  | "rollingBack"
+  | "failed";
+
+export interface PushProgress {
+  state: PushState;
+  detail: string | null;
+  ok: boolean | null;
+}
+
+export interface PushResult {
+  slot: number;
+  gameId: string | null;
+  bytesUploaded: number;
+  backupPath: string | null;
+  udpListening: boolean;
+}
+
+/** Native "pick a file" dialog, scoped to zip/world files. */
+export const pickWorldFile = () =>
+  open({
+    multiple: false,
+    filters: [{ name: "Core Keeper world", extensions: ["zip", "gzip"] }],
+  });
+
+/** Native "pick a folder" dialog. */
+export const pickWorldFolder = () => open({ multiple: false, directory: true });
+
+export const resolveLocalWorld = (path: string) =>
+  invoke<LocalWorldCandidate[]>("resolve_local_world", { path });
+
+export const pushWorld = (candidate: LocalWorldCandidate) =>
+  invoke<PushResult>("push_world", { candidate });
+
+/** Subscribes to live progress from the running push envelope. Call before `pushWorld`
+ * so no early events are missed; the returned function unsubscribes. */
+export const onPushProgress = (cb: (p: PushProgress) => void): Promise<UnlistenFn> =>
+  listen<PushProgress>("push-progress", (event) => cb(event.payload));
+
+// ---- pull --------------------------------------------------------------------
+
+export interface RemoteWorldInfo {
+  slot: number;
+  size: number;
+  modified: number | null;
+}
+
+export type PullState = "checkingService" | "stopping" | "downloading" | "starting" | "done" | "failed";
+
+export interface PullProgress {
+  state: PullState;
+  detail: string | null;
+  ok: boolean | null;
+}
+
+export interface PulledWorld {
+  slot: number;
+  tempDir: string;
+  mainPath: string;
+  pugbackupPath: string | null;
+  bytes: number;
+}
+
+export const listRemoteWorlds = () => invoke<RemoteWorldInfo[]>("list_remote_worlds");
+
+export const pullWorld = (slot: number) => invoke<PulledWorld>("pull_world", { slot });
+
+export const packagePulledWorld = (pulled: PulledWorld, destination: string, asZip: boolean) =>
+  invoke<string>("package_pulled_world", { pulled, destination, asZip });
+
+export const onPullProgress = (cb: (p: PullProgress) => void): Promise<UnlistenFn> =>
+  listen<PullProgress>("pull-progress", (event) => cb(event.payload));
+
+/** Native "save as .zip" dialog, pre-filled with a sensible file name. */
+export const saveWorldZip = (defaultName: string) =>
+  save({ defaultPath: defaultName, filters: [{ name: "Zip", extensions: ["zip"] }] });
+
+/** Native "pick a destination folder" dialog (for saving as a folder, not a zip). */
+export const pickSaveFolder = () => open({ multiple: false, directory: true });

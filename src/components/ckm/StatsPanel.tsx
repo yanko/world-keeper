@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LogDrawer } from "@/components/ckm/LogDrawer";
 import type { ServerStats } from "@/lib/api";
 import * as api from "@/lib/api";
 
@@ -26,6 +27,12 @@ function statusVariant(status: string): "default" | "destructive" | "secondary" 
   if (status === "active") return "default";
   if (status === "failed" || status === "inactive") return "destructive";
   return "secondary";
+}
+
+// "active" gets the one confident signal color (SPEC §12); failed/inactive keep the
+// badge's own destructive styling, everything else stays neutral.
+function statusClasses(status: string): string {
+  return status === "active" ? "border-signal bg-signal text-signal-foreground" : "";
 }
 
 export function StatsPanel() {
@@ -53,16 +60,19 @@ export function StatsPanel() {
     <Card className="flex h-full min-h-0 w-full flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Server stats</CardTitle>
-        <Button variant="outline" size="sm" onClick={refresh}>
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <LogDrawer />
+          <Button variant="outline" size="sm" onClick={refresh}>
+            Refresh
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
         {error && <div className="text-sm text-destructive">{error}</div>}
         {stats && (
           <>
             <div className="flex flex-wrap items-center gap-3">
-              <Badge variant={statusVariant(stats.serviceStatus)}>
+              <Badge variant={statusVariant(stats.serviceStatus)} className={statusClasses(stats.serviceStatus)}>
                 {stats.serviceStatus}
               </Badge>
               {stats.activeSince && (

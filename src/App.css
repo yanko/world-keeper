@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -11,24 +12,31 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  /* Cool slate base (SPEC §12) — a faint blue-leaning tint instead of pure achromatic
+     gray/black, so it reads as instrumentation rather than a generic dark UI. */
+  --background: oklch(0.99 0.002 250);
+  --foreground: oklch(0.17 0.005 250);
+  --card: oklch(1 0.002 250);
+  --card-foreground: oklch(0.17 0.005 250);
+  --popover: oklch(1 0.002 250);
+  --popover-foreground: oklch(0.17 0.005 250);
+  --primary: oklch(0.205 0.006 250);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.97 0.003 250);
+  --secondary-foreground: oklch(0.205 0.006 250);
+  --muted: oklch(0.97 0.003 250);
+  --muted-foreground: oklch(0.556 0.008 250);
+  --accent: oklch(0.97 0.003 250);
+  --accent-foreground: oklch(0.205 0.006 250);
+  /* Danger red — reserved strictly for stop/rollback/destroy actions and failed steps. */
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Signal — the one confident "healthy/live" accent (phosphor teal), used only for
+     status: active badges, the stepper's done/active states, listening indicators. */
+  --signal: oklch(0.72 0.13 175);
+  --signal-foreground: oklch(0.16 0.02 175);
+  --border: oklch(0.922 0.003 250);
+  --input: oklch(0.922 0.003 250);
+  --ring: oklch(0.708 0.01 250);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -48,6 +56,9 @@
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -89,24 +100,27 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  /* Graphite, not pure black — same cool slate hue as the light theme's tint. */
+  --background: oklch(0.16 0.008 250);
+  --foreground: oklch(0.97 0.004 250);
+  --card: oklch(0.205 0.01 250);
+  --card-foreground: oklch(0.97 0.004 250);
+  --popover: oklch(0.205 0.01 250);
+  --popover-foreground: oklch(0.97 0.004 250);
+  --primary: oklch(0.922 0.004 250);
+  --primary-foreground: oklch(0.205 0.01 250);
+  --secondary: oklch(0.269 0.01 250);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: oklch(0.269 0.01 250);
+  --muted-foreground: oklch(0.708 0.01 250);
+  --accent: oklch(0.269 0.01 250);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --signal: oklch(0.78 0.15 175);
+  --signal-foreground: oklch(0.16 0.02 175);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.556 0.01 250);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
