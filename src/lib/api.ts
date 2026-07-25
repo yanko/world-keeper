@@ -69,6 +69,7 @@ export interface ConnectResult {
 export interface ServerStats {
   serviceStatus: string;
   activeSince: string | null;
+  serverTime: string | null;
   udpListening: string[];
   memTotalKb: number | null;
   memAvailableKb: number | null;
@@ -77,6 +78,7 @@ export interface ServerStats {
   diskAvail: string | null;
   diskUsePct: string | null;
   uptimeSeconds: number | null;
+  gameId: string | null;
   recentLogTail: string;
 }
 
@@ -229,3 +231,60 @@ export const saveWorldZip = (defaultName: string) =>
 
 /** Native "pick a destination folder" dialog (for saving as a folder, not a zip). */
 export const pickSaveFolder = () => open({ multiple: false, directory: true });
+
+// ---- audit -------------------------------------------------------------------
+
+export interface EventRow {
+  id: number;
+  sessionId: number | null;
+  ts: string;
+  kind: string;
+  state: string | null;
+  detailJson: unknown | null;
+  ok: boolean | null;
+}
+
+export interface EventFilter {
+  kind?: string;
+  sessionId?: number;
+  ok?: boolean;
+  search?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface SessionRow {
+  id: number;
+  startedAt: string;
+  appVersion: string | null;
+  profileId: string | null;
+  host: string | null;
+  sshUser: string | null;
+  authMethod: string | null;
+}
+
+export const queryAuditEvents = (filter: EventFilter) =>
+  invoke<EventRow[]>("query_audit_events", { filter });
+
+export const listAuditEventKinds = () => invoke<string[]>("list_audit_event_kinds");
+
+export const listAuditSessions = () => invoke<SessionRow[]>("list_audit_sessions");
+
+// ---- terminal ------------------------------------------------------------------
+
+export const terminalOpen = () => invoke<void>("terminal_open");
+
+export const terminalWrite = (data: string) => invoke<void>("terminal_write", { data });
+
+export const terminalResize = (cols: number, rows: number) =>
+  invoke<void>("terminal_resize", { cols, rows });
+
+export const terminalClose = () => invoke<void>("terminal_close");
+
+export const onTerminalOutput = (cb: (chunk: string) => void): Promise<UnlistenFn> =>
+  listen<string>("terminal-output", (event) => cb(event.payload));
+
+export const onTerminalClosed = (cb: () => void): Promise<UnlistenFn> =>
+  listen<void>("terminal-closed", () => cb());

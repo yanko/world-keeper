@@ -404,6 +404,9 @@ green" AI-default looks.
 7. Key-auth + public-key install helper.
 8. Docker ServiceKind impl (exec through the same SSH host) — proves the abstraction.
 9. Design pass on the stepper; log drawer; Steam badge (stretch).
+10. Post-v1 refinements (§15): profile edit/delete UI, persistent current-world
+    display, locked connection dropdown while connected, server clock + copyable game id.
+11. Terminal + Audit tabs (§16).
 
 ---
 
@@ -415,3 +418,75 @@ green" AI-default looks.
   renamed to a specific slot to be the one that loads.
 - UDP port actually in use (confirm via `ss -ulnp`) for the "listening" check.
 - Core Keeper Steam app id for `app_info_print` (verify `1963720`).
+
+---
+
+## 15. Post-v1 refinements (found during real use, 2026-07-25)
+
+All of v1's build order (§13) shipped and was exercised for real against both the
+reference systemd LXC and a Docker-hosted instance. These four gaps surfaced from
+actually living with the app day-to-day; tracked here so they don't get lost.
+
+- **Profile edit/delete UI** (refines §11 screen 6, Settings). `upsert_profile` and
+  `delete_profile` commands existed backend-side since §13 item 1 but were never wired
+  to anything beyond "New profile" — there's no way to edit an existing profile's
+  host/port/user, or remove one, without hand-editing the config file. Add edit (reuse
+  the same dialog, pre-filled) and delete (with confirmation, since it silently drops
+  `profile.discovered` too) to the profile dropdown.
+- **Persistent current-world visibility** (refines §11 screen 2, World Library /
+  Current — not the full backups-list-with-restore version of that screen, just the
+  "what's live right now" half of it). Today the captured game id only ever appears
+  transiently during a push's `CapturingGameId` step; there's no way to see which world
+  is currently loaded outside of running a push/pull. Surface it persistently in the
+  Stats panel instead, parsed from the log tail the same way push already does.
+- **Lock the connection dropdown while connected** (refines §11 screen 1, Connection
+  bar). Switching profiles mid-session was never a supported operation — the dropdown
+  should be disabled whenever `status !== "disconnected"`, not just functionally
+  ignored.
+- **Server clock + copyable game id** (refines §10, Stats dashboard). Add the server's
+  current wall-clock time to the status row (distinct from uptime, which only measures
+  time since boot) and a copy-to-clipboard affordance next to the game id — using
+  `@tauri-apps/plugin-clipboard-manager` rather than the raw browser clipboard API,
+  which Tauri webviews don't reliably grant without it.
+
+---
+
+## 16. New screens: Terminal + Audit (requested 2026-07-25)
+
+Two additions to §11's screen list, each a new top-level tab alongside Stats/Push/Pull.
+
+### Terminal
+
+A real interactive shell over the same SSH connection — not another `exec()` call, an
+actual PTY session. Architecturally distinct from everything in §13: every SSH
+interaction so far has been request/response (`exec` sends one command, waits for exit,
+returns output); a terminal is a persistent bidirectional stream.
+
+- Backend: request a PTY + shell on a dedicated channel (`channel.request_pty`,
+  `channel.request_shell`). The channel splits into read/write halves, so a background
+  task loops on the read half emitting output chunks as Tauri events
+  (`terminal-output`), while a `terminal_write` command feeds keystrokes into the write
+  half independently; `terminal_resize` forwards window-change events so full-screen
+  apps (`vim`, `top`, `less`) redraw correctly. Concurrent with, and independent of, the
+  app's normal `exec()` traffic (stats polling, etc.) over the same authenticated
+  connection.
+- Frontend: needs a real terminal emulator to interpret ANSI escapes, cursor movement,
+  and color — a plain `<pre>` can't render a shell session. New dependency: `xterm.js`.
+- One terminal session per connection (mirrors §2's "one profile connected at a time");
+  closing the tab or disconnecting tears down the channel and background task.
+- Security note: this is a raw shell as whatever user the profile connects as (`root` on
+  the reference LXC) — the same trust level as `ssh root@host` today, not a new
+  privilege, but worth being explicit that it's real and unsandboxed, not a toy.
+
+### Audit
+
+A filterable, searchable view over the SQLite audit log (§9's `sessions`/`events`/
+`file_ops`/`backups` tables), which has been fully populated since the very first build
+phase but has no read path yet — `audit.rs` is write-only so far.
+
+- New Rust query commands (kept typed and in Rust, consistent with "all real logic in
+  Rust" — not raw SQL handed to the frontend via `tauri-plugin-sql`'s generic JS
+  `select()`): filter by `kind`, `session_id`, `ok`/failed, and a date range; free-text
+  search over `state` and `detail_json`. Paginated.
+- UI: a results table (timestamp, kind, state, ok/fail, detail) with filter controls
+  above it and a search box; click a row to expand full `detail_json`.

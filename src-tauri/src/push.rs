@@ -379,7 +379,7 @@ async fn capture_game_id(target: &dyn ServerTarget) -> Option<String> {
     let deadline = Instant::now() + GAME_ID_TIMEOUT;
     loop {
         if let Ok(text) = target.logs_tail(200).await {
-            if let Some(id) = find_game_id(&text) {
+            if let Some(id) = crate::stats::find_game_id(&text) {
                 return Some(id);
             }
         }
@@ -388,14 +388,6 @@ async fn capture_game_id(target: &dyn ServerTarget) -> Option<String> {
         }
         tokio::time::sleep(POLL_INTERVAL).await;
     }
-}
-
-fn find_game_id(text: &str) -> Option<String> {
-    text.lines().rev().find_map(|line| {
-        let idx = line.find("GameID:")?;
-        let id = line[idx + "GameID:".len()..].trim();
-        (!id.is_empty()).then(|| id.to_string())
-    })
 }
 
 async fn wait_for_udp_listening(target: &dyn ServerTarget) -> bool {

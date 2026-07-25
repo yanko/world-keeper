@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,8 +51,10 @@ export function ConnectionBar({
   onConnect,
   onDisconnect,
 }: ConnectionBarProps) {
-  const [addOpen, setAddOpen] = useState(false);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [draft, setDraft] = useState(emptyDraft);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -59,29 +62,67 @@ export function ConnectionBar({
   const [settingUpKeyAuth, setSettingUpKeyAuth] = useState(false);
 
   const selectedProfile = config.profiles.find((p) => p.id === selectedProfileId) ?? null;
+  const canEditOrDelete = status === "disconnected" && !!selectedProfile;
 
-  async function submitNewProfile() {
+  function openNewProfileDialog() {
+    setEditingProfile(null);
+    setDraft(emptyDraft);
+    setProfileDialogOpen(true);
+  }
+
+  function openEditProfileDialog() {
+    if (!selectedProfile) return;
+    setEditingProfile(selectedProfile);
+    setDraft({
+      name: selectedProfile.name,
+      host: selectedProfile.host,
+      port: String(selectedProfile.port),
+      user: selectedProfile.user,
+      auth: selectedProfile.auth,
+    });
+    setProfileDialogOpen(true);
+  }
+
+  async function submitProfile() {
     if (!draft.name || !draft.host || !draft.user) {
       toast.error("Name, host, and user are required.");
       return;
     }
-    const profile: Profile = {
-      id: crypto.randomUUID(),
-      name: draft.name,
-      host: draft.host,
-      port: Number(draft.port) || 22,
-      user: draft.user,
-      auth: draft.auth,
-      savePassword: false,
-      discovered: null,
-    };
+    // Editing preserves everything the simple form doesn't show (auth/keyPath/
+    // savePassword/discovered) — upsert replaces the whole stored profile, so
+    // starting from the original object (not a fresh one) matters here.
+    const profile: Profile = editingProfile
+      ? { ...editingProfile, name: draft.name, host: draft.host, port: Number(draft.port) || 22, user: draft.user }
+      : {
+          id: crypto.randomUUID(),
+          name: draft.name,
+          host: draft.host,
+          port: Number(draft.port) || 22,
+          user: draft.user,
+          auth: draft.auth,
+          savePassword: false,
+          discovered: null,
+        };
     try {
       const cfg = await api.upsertProfile(profile);
       onConfigChanged(cfg);
       onSelectProfile(profile.id);
-      setAddOpen(false);
-      setDraft(emptyDraft);
-      toast.success(`Profile "${profile.name}" added.`);
+      setProfileDialogOpen(false);
+      toast.success(editingProfile ? `Profile "${profile.name}" updated.` : `Profile "${profile.name}" added.`);
+    } catch (e) {
+      toast.error(String(e));
+    }
+  }
+
+  async function deleteSelectedProfile() {
+    if (!selectedProfile) return;
+    setDeleteOpen(false);
+    try {
+      const cfg = await api.deleteProfile(selectedProfile.id);
+      onConfigChanged(cfg);
+      const fallback = cfg.profiles.find((p) => p.id !== selectedProfile.id);
+      if (fallback) onSelectProfile(fallback.id);
+      toast.success(`Profile "${selectedProfile.name}" deleted.`);
     } catch (e) {
       toast.error(String(e));
     }
@@ -150,6 +191,7 @@ export function ConnectionBar({
       <Select
         value={selectedProfileId ?? undefined}
         onValueChange={(v) => v && onSelectProfile(v)}
+        disabled={status !== "disconnected"}
       >
         <SelectTrigger className="max-w-full min-w-40">
           <SelectValue placeholder="Select a profile…">
@@ -170,8 +212,28 @@ export function ConnectionBar({
         </SelectContent>
       </Select>
 
-      <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+      <Button variant="outline" size="sm" onClick={openNewProfileDialog}>
         New profile
+      </Button>
+
+      <Button
+        variant="outline"
+        size="icon-sm"
+        disabled={!canEditOrDelete}
+        onClick={openEditProfileDialog}
+        title="Edit profile"
+      >
+        <PencilIcon />
+      </Button>
+
+      <Button
+        variant="outline"
+        size="icon-sm"
+        disabled={!canEditOrDelete}
+        onClick={() => setDeleteOpen(true)}
+        title="Delete profile"
+      >
+        <Trash2Icon />
       </Button>
 
       {status === "disconnected" ? (
@@ -205,15 +267,15 @@ export function ConnectionBar({
         <ThemeToggle />
       </div>
 
-      {/* New profile dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      {/* New/edit profile dialog */}
+      <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New connection profile</DialogTitle>
+            <DialogTitle>{editingProfile ? `Edit ${editingProfile.name}` : "New connection profile"}</DialogTitle>
             <DialogDescription>
-              SSH connection details. New profiles start on password auth — once
-              connected, use "Set up key auth" to switch to a key so you won't need to
-              retype the password.
+              {editingProfile
+                ? "Auth method, saved key, and discovery stay as they are — only these fields change."
+                : 'SSH connection details. New profiles start on password auth — once connected, use "Set up key auth" to switch to a key so you won\'t need to retype the password.'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
@@ -242,10 +304,31 @@ export function ConnectionBar({
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
+            <Button variant="outline" onClick={() => setProfileDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={submitNewProfile}>Add profile</Button>
+            <Button onClick={submitProfile}>{editingProfile ? "Save changes" : "Add profile"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete profile confirm */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedProfile?.name}?</DialogTitle>
+            <DialogDescription>
+              Removes the profile and its cached discovery info. Any saved password or
+              key in the OS keyring is left alone. This can't be undone from here.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={deleteSelectedProfile}>
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

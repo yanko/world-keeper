@@ -5,6 +5,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
+use crate::audit::{EventFilter, EventRow, SessionRow};
 use crate::config::{self, AppConfig, Discovered, Profile};
 use crate::discovery::{self, DiscoveryResult};
 use crate::keygen;
@@ -165,6 +166,9 @@ pub async fn connect(
 
 #[tauri::command]
 pub async fn disconnect(state: State<'_, AppState>) -> Result<(), String> {
+    if let Some(term) = state.terminal.lock().await.take() {
+        term.close();
+    }
     if let Some(conn) = state.connection.lock().await.take() {
         state
             .audit
@@ -409,4 +413,68 @@ pub async fn package_pulled_world(
     as_zip: bool,
 ) -> Result<String, String> {
     pull::package_pulled(&pulled, &destination, as_zip).await.map_err(err)
+}
+
+// ---- audit -------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn query_audit_events(
+    state: State<'_, AppState>,
+    filter: EventFilter,
+) -> Result<Vec<EventRow>, String> {
+    state.audit.query_events(&filter).await.map_err(err)
+}
+
+#[tauri::command]
+pub async fn list_audit_event_kinds(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    state.audit.list_event_kinds().await.map_err(err)
+}
+
+#[tauri::command]
+pub async fn list_audit_sessions(state: State<'_, AppState>) -> Result<Vec<SessionRow>, String> {
+    state.audit.list_sessions().await.map_err(err)
+}
+
+// ---- terminal ------------------------------------------------------------------
+
+/// Opens a fresh PTY session over the current connection, replacing any previous one.
+/// Deliberately manual (no auto-open on connect) — this is a real, unsandboxed shell,
+/// not something to spin up without the user asking for it.
+#[tauri::command]
+pub async fn terminal_open(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let term = {
+        let guard = state.connection.lock().await;
+        let conn = guard.as_ref().ok_or("not connected")?;
+        crate::terminal::TerminalSession::open(app, conn.session())
+            .await
+            .map_err(err)?
+    };
+    let mut slot = state.terminal.lock().await;
+    if let Some(old) = slot.take() {
+        old.close();
+    }
+    *slot = Some(term);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn terminal_write(state: State<'_, AppState>, data: String) -> Result<(), String> {
+    let guard = state.terminal.lock().await;
+    let term = guard.as_ref().ok_or("terminal session not open")?;
+    term.write(&data).await.map_err(err)
+}
+
+#[tauri::command]
+pub async fn terminal_resize(state: State<'_, AppState>, cols: u32, rows: u32) -> Result<(), String> {
+    let guard = state.terminal.lock().await;
+    let term = guard.as_ref().ok_or("terminal session not open")?;
+    term.resize(cols, rows).await.map_err(err)
+}
+
+#[tauri::command]
+pub async fn terminal_close(state: State<'_, AppState>) -> Result<(), String> {
+    if let Some(term) = state.terminal.lock().await.take() {
+        term.close();
+    }
+    Ok(())
 }

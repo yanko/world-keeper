@@ -13,6 +13,9 @@ use crate::target::{ServerTarget, ServiceAction};
 pub struct ServerStats {
     pub service_status: String,
     pub active_since: Option<String>,
+    /// The server's own wall-clock time (SPEC §15) — distinct from `uptime_seconds`,
+    /// which only measures time since boot.
+    pub server_time: Option<String>,
     /// Raw `ss -ulnp` lines that mention corekeeper (best-effort; empty if none found).
     pub udp_listening: Vec<String>,
     pub mem_total_kb: Option<u64>,
@@ -22,6 +25,9 @@ pub struct ServerStats {
     pub disk_avail: Option<String>,
     pub disk_use_pct: Option<String>,
     pub uptime_seconds: Option<u64>,
+    /// Last `GameID:` line seen in the log tail (SPEC §15) — persistent visibility into
+    /// what's currently loaded, not just during a push's `CapturingGameId` step.
+    pub game_id: Option<String>,
     pub recent_log_tail: String,
 }
 
@@ -33,6 +39,13 @@ pub async fn collect(target: &dyn ServerTarget) -> anyhow::Result<ServerStats> {
         .trim()
         .to_string();
     let active_since = target.active_since().await.unwrap_or(None);
+
+    let server_time = target
+        .exec("date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null")
+        .await
+        .ok()
+        .map(|out| out.stdout.trim().to_string())
+        .filter(|s| !s.is_empty());
 
     let udp_listening = udp_listening(target).await;
 
@@ -63,11 +76,18 @@ pub async fn collect(target: &dyn ServerTarget) -> anyhow::Result<ServerStats> {
         Err(_) => None,
     };
 
-    let recent_log_tail = target.logs_tail(80).await.unwrap_or_default();
+    // 200, not 80: matches push.rs's CapturingGameId window. A noisy startup (Docker's
+    // in particular logs dozens of memorysetup/allocator lines before `GameID:` shows
+    // up) can easily push it outside a short window while still being visible in the
+    // separate, independently-fetched Live log drawer — this was silently returning no
+    // game id whenever that happened.
+    let recent_log_tail = target.logs_tail(200).await.unwrap_or_default();
+    let game_id = find_game_id(&recent_log_tail);
 
     Ok(ServerStats {
         service_status,
         active_since,
+        server_time,
         udp_listening,
         mem_total_kb,
         mem_available_kb,
@@ -76,7 +96,32 @@ pub async fn collect(target: &dyn ServerTarget) -> anyhow::Result<ServerStats> {
         disk_avail,
         disk_use_pct,
         uptime_seconds,
+        game_id,
         recent_log_tail,
+    })
+}
+
+/// Finds Core Keeper's `GameID: <id>` line (format confirmed against the reference
+/// LXC), taking the *last* match so a stale line from a previous run still sitting in
+/// the tail window never wins over the fresh one. Shared with the push state machine's
+/// CapturingGameId step, which needs the identical parse.
+///
+/// Different Core Keeper builds log this differently — confirmed on a Docker deployment
+/// that says `Started session with info: <id>` instead. `GameID path: ...` is *not* a
+/// match for the first marker (no colon directly after "GameID"), so both markers can
+/// coexist without one shadowing the other.
+pub fn find_game_id(text: &str) -> Option<String> {
+    const MARKERS: &[&str] = &["GameID:", "Started session with info:"];
+    text.lines().rev().find_map(|line| {
+        for marker in MARKERS {
+            if let Some(idx) = line.find(marker) {
+                let id = line[idx + marker.len()..].trim();
+                if !id.is_empty() {
+                    return Some(id.to_string());
+                }
+            }
+        }
+        None
     })
 }
 

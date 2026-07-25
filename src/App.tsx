@@ -10,6 +10,8 @@ import { DiscoveryConfirm } from "@/components/ckm/DiscoveryConfirm";
 import { StatsPanel } from "@/components/ckm/StatsPanel";
 import { PushPanel } from "@/components/ckm/PushPanel";
 import { PullPanel } from "@/components/ckm/PullPanel";
+import { TerminalPanel } from "@/components/ckm/TerminalPanel";
+import { AuditPanel } from "@/components/ckm/AuditPanel";
 import type { AppConfig, DiscoveryResult } from "@/lib/api";
 import * as api from "@/lib/api";
 
@@ -95,47 +97,62 @@ function App() {
         <div className="p-4 text-sm text-muted-foreground">Loading…</div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-        {status === "connected-raw" && discoveryResult && selectedProfileId && (
-          <DiscoveryConfirm
-            profileId={selectedProfileId}
-            result={discoveryResult}
-            onRescan={handleRescan}
-            onConfirmed={handleConfirmed}
-          />
-        )}
+      <Tabs defaultValue="server" className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+        <TabsList>
+          <TabsTrigger value="server">Server</TabsTrigger>
+          <TabsTrigger value="audit">Audit</TabsTrigger>
+        </TabsList>
 
-        {status === "connected-target" && (
-          <Tabs defaultValue="stats" className="flex min-h-0 flex-1 flex-col gap-3">
-            <TabsList>
-              <TabsTrigger value="stats">Stats</TabsTrigger>
-              <TabsTrigger value="push">Push a world</TabsTrigger>
-              <TabsTrigger value="pull">Pull a world</TabsTrigger>
-            </TabsList>
-            <TabsContent value="stats" className="flex min-h-0 flex-1 flex-col">
-              <StatsPanel />
-            </TabsContent>
-            <TabsContent value="push" className="flex min-h-0 flex-1 flex-col">
-              <PushPanel />
-            </TabsContent>
-            <TabsContent value="pull" className="flex min-h-0 flex-1 flex-col">
-              <PullPanel />
-            </TabsContent>
-          </Tabs>
-        )}
+        <TabsContent value="server" className="flex min-h-0 flex-1 flex-col gap-4">
+          {status === "connected-raw" && discoveryResult && selectedProfileId && (
+            <DiscoveryConfirm
+              profileId={selectedProfileId}
+              result={discoveryResult}
+              onRescan={handleRescan}
+              onConfirmed={handleConfirmed}
+            />
+          )}
 
-        {status === "disconnected" && (
-          <Card className="w-full">
-            <CardHeader>
-              <CardTitle>No active connection</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Pick or add a profile above, then Connect. First connect to a profile
-              triggers the discovery probe automatically.
-            </CardContent>
-          </Card>
-        )}
-      </div>
+          {status === "connected-target" && (
+            <Tabs defaultValue="stats" className="flex min-h-0 flex-1 flex-col gap-3">
+              <TabsList>
+                <TabsTrigger value="stats">Stats</TabsTrigger>
+                <TabsTrigger value="push">Push a world</TabsTrigger>
+                <TabsTrigger value="pull">Pull a world</TabsTrigger>
+                <TabsTrigger value="terminal">Terminal</TabsTrigger>
+              </TabsList>
+              <TabsContent value="stats" className="flex min-h-0 flex-1 flex-col">
+                <StatsPanel />
+              </TabsContent>
+              <TabsContent value="push" className="flex min-h-0 flex-1 flex-col">
+                <PushPanel />
+              </TabsContent>
+              <TabsContent value="pull" className="flex min-h-0 flex-1 flex-col">
+                <PullPanel />
+              </TabsContent>
+              <TabsContent value="terminal" className="flex min-h-0 flex-1 flex-col">
+                <TerminalPanel />
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {status === "disconnected" && (
+            <Card className="w-full">
+              <CardHeader>
+                <CardTitle>No active connection</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Pick or add a profile above, then Connect. First connect to a profile
+                triggers the discovery probe automatically.
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="audit" className="flex min-h-0 flex-1 flex-col">
+          <AuditPanel />
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }

@@ -9,6 +9,7 @@ mod push;
 mod secrets;
 mod state;
 mod stats;
+mod terminal;
 
 // Public so `examples/ssh_test.rs` (a manual, no-UI connectivity check the user runs
 // themselves against the real server) can reach them without duplicating the transport.
@@ -33,6 +34,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             let app_handle = app.handle().clone();
             let app_state = tauri::async_runtime::block_on(async move {
@@ -52,6 +54,7 @@ pub fn run() {
                     audit,
                     session_id,
                     connection: Mutex::new(None),
+                    terminal: Mutex::new(None),
                 }
             });
             app.manage(app_state);
@@ -78,6 +81,13 @@ pub fn run() {
             commands::list_remote_worlds,
             commands::pull_world,
             commands::package_pulled_world,
+            commands::query_audit_events,
+            commands::list_audit_event_kinds,
+            commands::list_audit_sessions,
+            commands::terminal_open,
+            commands::terminal_write,
+            commands::terminal_resize,
+            commands::terminal_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

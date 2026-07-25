@@ -126,6 +126,16 @@ impl SshSession {
         Ok(())
     }
 
+    /// A raw, unconfigured channel over this connection — used by `terminal.rs` for an
+    /// interactive PTY session, which needs to drive `request_pty`/`request_shell`/
+    /// `split` itself rather than the request/response shape `exec` provides.
+    pub async fn open_channel(&self) -> Result<russh::Channel<client::Msg>> {
+        self.handle
+            .channel_open_session()
+            .await
+            .context("opening SSH channel")
+    }
+
     pub async fn exec(&self, cmd: &str) -> Result<ExecOutput> {
         let mut channel = self
             .handle
@@ -428,6 +438,14 @@ impl ServerTarget for SshTarget {
                     .session
                     .exec(&format!("docker exec {} ss -uln 2>/dev/null", shq(container)))
                     .await?;
+                if !out.success() {
+                    // `ss` (or any binary) missing inside a minimal container image is
+                    // common, and some Docker/OCI runtime versions print the resulting
+                    // "exec failed" error to stdout despite the redirect above — treat
+                    // any nonzero exit as "couldn't check," never as literal listener
+                    // data.
+                    return Ok(Vec::new());
+                }
                 Ok(out
                     .stdout
                     .lines()

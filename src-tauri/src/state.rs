@@ -5,6 +5,7 @@ use tokio::sync::Mutex;
 
 use crate::audit::AuditDb;
 use crate::ssh::{SshSession, SshTarget};
+use crate::terminal::TerminalSession;
 
 /// A connection moves from `Raw` (just authenticated, `ServiceKind` not yet known/
 /// confirmed) to `Target` (confirmed, ready for the future push/pull state machine).
@@ -41,4 +42,6 @@ pub struct AppState {
     pub audit: AuditDb,
     pub session_id: i64,
     pub connection: Mutex<Option<Connection>>,
+    /// One terminal session at a time (mirrors "one connection at a time," §2).
+    pub terminal: Mutex<Option<TerminalSession>>,
 }

@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { CopyIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,16 +38,35 @@ function statusClasses(status: string): string {
   return status === "active" ? "border-signal bg-signal text-signal-foreground" : "";
 }
 
+async function copyGameId(id: string) {
+  try {
+    await writeText(id);
+    toast.success("Game id copied.");
+  } catch (e) {
+    toast.error(String(e));
+  }
+}
+
 export function StatsPanel() {
   const [stats, setStats] = useState<ServerStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // `collect()` on the backend is several sequential SSH round-trips (and can be slow
+  // on a Docker target specifically — see ssh.rs's udp_listening fallback), so the
+  // 5s auto-poll and a manual Refresh click can easily have more than one request in
+  // flight. Without this guard, whichever happens to *resolve* last wins, not
+  // whichever was *sent* last — an older, slower response can overwrite a fresher one
+  // and make the panel look like it stopped updating.
+  const requestIdRef = useRef(0);
 
   async function refresh() {
+    const requestId = ++requestIdRef.current;
     try {
       const s = await api.getStats();
+      if (requestId !== requestIdRef.current) return;
       setStats(s);
       setError(null);
     } catch (e) {
+      if (requestId !== requestIdRef.current) return;
       setError(String(e));
     }
   }
@@ -83,6 +105,30 @@ export function StatsPanel() {
               <span className="text-xs text-muted-foreground">
                 uptime {formatUptime(stats.uptimeSeconds)}
               </span>
+              {stats.serverTime && (
+                <span className="font-mono text-xs text-muted-foreground">
+                  server clock {stats.serverTime}
+                </span>
+              )}
+            </div>
+
+            <div>
+              <div className="text-sm text-muted-foreground">Current world</div>
+              {stats.gameId ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-sm">{stats.gameId}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    title="Copy game id"
+                    onClick={() => copyGameId(stats.gameId!)}
+                  >
+                    <CopyIcon />
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">no game id captured yet</div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
