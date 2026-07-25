@@ -272,6 +272,56 @@ export const listAuditEventKinds = () => invoke<string[]>("list_audit_event_kind
 
 export const listAuditSessions = () => invoke<SessionRow[]>("list_audit_sessions");
 
+/** Every command the app has run over SSH — success or failure, with output. */
+export interface CommandRow {
+  id: number;
+  sessionId: number | null;
+  ts: string;
+  command: string;
+  exitCode: number | null;
+  stdout: string | null;
+  stderr: string | null;
+  durationMs: number | null;
+}
+
+export interface CommandFilter {
+  sessionId?: number;
+  failedOnly?: boolean;
+  search?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** Operation-level failures (connect, discovery, push/pull/restore, ssh exec). */
+export interface ErrorRow {
+  id: number;
+  sessionId: number | null;
+  ts: string;
+  context: string;
+  message: string;
+  detailJson: string | null;
+}
+
+export interface ErrorFilter {
+  sessionId?: number;
+  context?: string;
+  search?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export const queryAuditCommands = (filter: CommandFilter) =>
+  invoke<CommandRow[]>("query_audit_commands", { filter });
+
+export const queryAuditErrors = (filter: ErrorFilter) =>
+  invoke<ErrorRow[]>("query_audit_errors", { filter });
+
+export const listAuditErrorContexts = () => invoke<string[]>("list_audit_error_contexts");
+
 // ---- terminal ------------------------------------------------------------------
 
 export const terminalOpen = () => invoke<void>("terminal_open");
@@ -288,3 +338,60 @@ export const onTerminalOutput = (cb: (chunk: string) => void): Promise<UnlistenF
 
 export const onTerminalClosed = (cb: () => void): Promise<UnlistenFn> =>
   listen<void>("terminal-closed", () => cb());
+
+// ---- audit: destructive/export ops --------------------------------------------
+
+export const clearAuditLog = () => invoke<void>("clear_audit_log");
+
+export const exportAudit = (destination: string) =>
+  invoke<void>("export_audit", { destination });
+
+/** Native "save as .zip" dialog for the audit export. */
+export const saveAuditZip = (defaultName: string) =>
+  save({ defaultPath: defaultName, filters: [{ name: "Zip", extensions: ["zip"] }] });
+
+// ---- world library / restore ---------------------------------------------------
+
+export interface BackupRow {
+  id: number;
+  sessionId: number | null;
+  ts: string;
+  slot: number | null;
+  lxcPath: string | null;
+  bytes: number | null;
+  gameIdBefore: string | null;
+  note: string | null;
+}
+
+export type RestoreState =
+  | "checkingService"
+  | "stopping"
+  | "backingUp"
+  | "copying"
+  | "fixingPerms"
+  | "starting"
+  | "capturingGameId"
+  | "verifying"
+  | "done"
+  | "rollingBack"
+  | "failed";
+
+export interface RestoreProgress {
+  state: RestoreState;
+  detail: string | null;
+  ok: boolean | null;
+}
+
+export interface RestoreResult {
+  slot: number;
+  gameId: string | null;
+  backupPath: string | null;
+}
+
+export const listBackups = () => invoke<BackupRow[]>("list_backups");
+
+export const restoreBackup = (backupPath: string, slot: number) =>
+  invoke<RestoreResult>("restore_backup", { backupPath, slot });
+
+export const onRestoreProgress = (cb: (p: RestoreProgress) => void): Promise<UnlistenFn> =>
+  listen<RestoreProgress>("restore-progress", (event) => cb(event.payload));

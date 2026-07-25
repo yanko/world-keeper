@@ -5,13 +5,16 @@
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
-use crate::audit::{EventFilter, EventRow, SessionRow};
+use crate::audit::{
+    BackupRow, CommandFilter, CommandRow, ErrorFilter, ErrorRow, EventFilter, EventRow, SessionRow,
+};
 use crate::config::{self, AppConfig, Discovered, Profile};
 use crate::discovery::{self, DiscoveryResult};
 use crate::keygen;
 use crate::localworld::{self, LocalWorldCandidate};
 use crate::pull::{self, PulledWorld, RemoteWorldInfo};
 use crate::push::{self, PushResult};
+use crate::restore::{self, RestoreResult};
 use crate::secrets;
 use crate::ssh::{SshSession, SshTarget};
 use crate::state::{AppState, Connection};
@@ -92,31 +95,47 @@ pub async fn connect(
         .cloned()
         .ok_or_else(|| format!("no such profile: {profile_id}"))?;
 
-    let (session, auth_method) = match profile.auth {
+    let (session_result, auth_method) = match profile.auth {
         config::AuthMethod::Key => {
             let key_path = profile
                 .key_path
                 .as_deref()
                 .ok_or("this profile is set to key auth but has no keyPath")?;
-            let session = SshSession::connect_key(
+            let result = SshSession::connect_key(
                 &profile.host,
                 profile.port,
                 &profile.user,
                 std::path::Path::new(key_path),
             )
-            .await
-            .map_err(err)?;
-            (session, "key")
+            .await;
+            (result, "key")
         }
         config::AuthMethod::Password => {
             let password = password.ok_or("password required for this profile")?;
-            let session =
+            let result =
                 SshSession::connect_password(&profile.host, profile.port, &profile.user, &password)
-                    .await
-                    .map_err(err)?;
-            (session, "password")
+                    .await;
+            (result, "password")
         }
     };
+    let mut session = match session_result {
+        Ok(s) => s,
+        Err(e) => {
+            let msg = err(e);
+            state
+                .audit
+                .log_error(
+                    state.session_id,
+                    "connect",
+                    &msg,
+                    Some(&serde_json::json!({ "host": profile.host, "user": profile.user, "authMethod": auth_method })),
+                )
+                .await
+                .ok();
+            return Err(msg);
+        }
+    };
+    session.attach_audit(state.audit.clone(), state.session_id);
 
     state
         .audit
@@ -242,9 +261,22 @@ pub async fn setup_key_auth(app: AppHandle, state: State<'_, AppState>) -> Resul
 pub async fn run_discovery(state: State<'_, AppState>) -> Result<DiscoveryResult, String> {
     let guard = state.connection.lock().await;
     let conn = guard.as_ref().ok_or("not connected")?;
-    let result = discovery::probe(conn.session()).await.map_err(err)?;
+    let probe_result = discovery::probe(conn.session()).await;
     let profile_id = conn.profile_id().to_string();
     drop(guard);
+
+    let result = match probe_result {
+        Ok(r) => r,
+        Err(e) => {
+            let msg = err(e);
+            state
+                .audit
+                .log_error(state.session_id, "discovery", &msg, Some(&serde_json::json!({ "profileId": profile_id })))
+                .await
+                .ok();
+            return Err(msg);
+        }
+    };
 
     state
         .audit
@@ -435,6 +467,27 @@ pub async fn list_audit_sessions(state: State<'_, AppState>) -> Result<Vec<Sessi
     state.audit.list_sessions().await.map_err(err)
 }
 
+#[tauri::command]
+pub async fn query_audit_commands(
+    state: State<'_, AppState>,
+    filter: CommandFilter,
+) -> Result<Vec<CommandRow>, String> {
+    state.audit.query_ssh_commands(&filter).await.map_err(err)
+}
+
+#[tauri::command]
+pub async fn query_audit_errors(
+    state: State<'_, AppState>,
+    filter: ErrorFilter,
+) -> Result<Vec<ErrorRow>, String> {
+    state.audit.query_errors(&filter).await.map_err(err)
+}
+
+#[tauri::command]
+pub async fn list_audit_error_contexts(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    state.audit.list_error_contexts().await.map_err(err)
+}
+
 // ---- terminal ------------------------------------------------------------------
 
 /// Opens a fresh PTY session over the current connection, replacing any previous one.
@@ -477,4 +530,59 @@ pub async fn terminal_close(state: State<'_, AppState>) -> Result<(), String> {
         term.close();
     }
     Ok(())
+}
+
+// ---- audit: destructive/export ops --------------------------------------------
+
+/// Wipes the audit trail. The frontend is expected to have already gotten two rounds
+/// of "are you sure" out of the user before ever calling this — nothing here re-asks.
+#[tauri::command]
+pub async fn clear_audit_log(state: State<'_, AppState>) -> Result<(), String> {
+    state.audit.clear_audit_log(state.session_id).await.map_err(err)
+}
+
+/// Writes a zip (events.csv + the raw ckmanager.db) to `destination`, which the
+/// frontend resolves via a native "save as" dialog first.
+#[tauri::command]
+pub async fn export_audit(state: State<'_, AppState>, destination: String) -> Result<(), String> {
+    state
+        .audit
+        .export_zip(std::path::Path::new(&destination))
+        .await
+        .map_err(err)
+}
+
+// ---- world library / restore ---------------------------------------------------
+
+#[tauri::command]
+pub async fn list_backups(state: State<'_, AppState>) -> Result<Vec<BackupRow>, String> {
+    let host = state
+        .connection
+        .lock()
+        .await
+        .as_ref()
+        .map(|c| c.session().host.clone());
+    state.audit.list_backups(host.as_deref()).await.map_err(err)
+}
+
+/// Restores a previously-created backup (SPEC §11/§15 World Library): stops the
+/// server, backs up whatever's currently live (so this itself can be undone), copies
+/// the chosen backup into place, restarts, and verifies. Emits `restore-progress`.
+#[tauri::command]
+pub async fn restore_backup(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    backup_path: String,
+    slot: u32,
+) -> Result<RestoreResult, String> {
+    let guard = state.connection.lock().await;
+    match guard.as_ref() {
+        Some(Connection::Target { target, .. }) => {
+            restore::run_restore(&app, &state.audit, state.session_id, target, &backup_path, slot)
+                .await
+                .map_err(err)
+        }
+        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
+        None => Err("not connected".to_string()),
+    }
 }

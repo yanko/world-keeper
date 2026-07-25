@@ -12,6 +12,7 @@ import { PushPanel } from "@/components/ckm/PushPanel";
 import { PullPanel } from "@/components/ckm/PullPanel";
 import { TerminalPanel } from "@/components/ckm/TerminalPanel";
 import { AuditPanel } from "@/components/ckm/AuditPanel";
+import { WorldLibraryPanel } from "@/components/ckm/WorldLibraryPanel";
 import type { AppConfig, DiscoveryResult } from "@/lib/api";
 import * as api from "@/lib/api";
 
@@ -117,12 +118,16 @@ function App() {
             <Tabs defaultValue="stats" className="flex min-h-0 flex-1 flex-col gap-3">
               <TabsList>
                 <TabsTrigger value="stats">Stats</TabsTrigger>
+                <TabsTrigger value="library">World library</TabsTrigger>
                 <TabsTrigger value="push">Push a world</TabsTrigger>
                 <TabsTrigger value="pull">Pull a world</TabsTrigger>
                 <TabsTrigger value="terminal">Terminal</TabsTrigger>
               </TabsList>
               <TabsContent value="stats" className="flex min-h-0 flex-1 flex-col">
                 <StatsPanel />
+              </TabsContent>
+              <TabsContent value="library" className="flex min-h-0 flex-1 flex-col">
+                <WorldLibraryPanel />
               </TabsContent>
               <TabsContent value="push" className="flex min-h-0 flex-1 flex-col">
                 <PushPanel />

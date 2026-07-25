@@ -6,6 +6,7 @@ mod keygen;
 mod localworld;
 mod pull;
 mod push;
+mod restore;
 mod secrets;
 mod state;
 mod stats;
@@ -84,10 +85,17 @@ pub fn run() {
             commands::query_audit_events,
             commands::list_audit_event_kinds,
             commands::list_audit_sessions,
+            commands::query_audit_commands,
+            commands::query_audit_errors,
+            commands::list_audit_error_contexts,
             commands::terminal_open,
             commands::terminal_write,
             commands::terminal_resize,
             commands::terminal_close,
+            commands::clear_audit_log,
+            commands::export_audit,
+            commands::list_backups,
+            commands::restore_backup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

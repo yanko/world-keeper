@@ -154,6 +154,10 @@ async fn fail(
         )
         .await
         .ok();
+    audit
+        .log_error(session_id, "pull", &msg, Some(&serde_json::json!({ "slot": slot })))
+        .await
+        .ok();
     Err(e)
 }
 

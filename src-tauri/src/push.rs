@@ -22,8 +22,15 @@ use crate::ssh::shq;
 use crate::stats::udp_listening;
 use crate::target::{RunState, ServerTarget, ServiceAction};
 
-const GAME_ID_TIMEOUT: Duration = Duration::from_secs(45);
-const VERIFY_TIMEOUT: Duration = Duration::from_secs(30);
+// Both of these are polling loops that return the moment the condition is met, so a
+// fast (systemd/LXC) target isn't slowed down by a generous ceiling — only a genuinely
+// slow one benefits from it. 30s turned out to be too tight for at least one Docker
+// deployment: `docker start` reports the container "running" almost immediately (the
+// entrypoint process is alive), well before Core Keeper itself has finished loading a
+// freshly-swapped world and bound its UDP port, so "verification failed" was firing on
+// a server that was still genuinely starting up, not one that was actually broken.
+const GAME_ID_TIMEOUT: Duration = Duration::from_secs(90);
+const VERIFY_TIMEOUT: Duration = Duration::from_secs(90);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -174,6 +181,15 @@ pub async fn run_push(
                 )
                 .await
                 .ok();
+            audit
+                .log_error(
+                    session_id,
+                    "push",
+                    &msg,
+                    Some(&serde_json::json!({ "slot": candidate.slot, "rollback": &rollback_note })),
+                )
+                .await
+                .ok();
             Err(e)
         }
     }
@@ -313,7 +329,7 @@ fn to_hex(bytes: &[u8]) -> String {
 /// Copies the live `N.world.gzip*` set (if any exist yet) to a dated backup dir before
 /// anything is overwritten. Returns `None` only when there's genuinely nothing to back
 /// up (first-ever push to this slot) — never as a way of skipping a failure.
-async fn back_up(target: &dyn ServerTarget, worlds_path: &str, slot: u32) -> anyhow::Result<Option<String>> {
+pub(crate) async fn back_up(target: &dyn ServerTarget, worlds_path: &str, slot: u32) -> anyhow::Result<Option<String>> {
     let existing = target
         .stat(worlds_path, &format!("{slot}.world.gzip*"))
         .await
@@ -375,7 +391,7 @@ async fn move_staged_into_place(
 /// Polls the log tail for Core Keeper's `GameID: <id>` line (format confirmed against
 /// the reference LXC), taking the *last* match so a stale line from a previous run
 /// (still present in the tail window) never wins over the fresh one.
-async fn capture_game_id(target: &dyn ServerTarget) -> Option<String> {
+pub(crate) async fn capture_game_id(target: &dyn ServerTarget) -> Option<String> {
     let deadline = Instant::now() + GAME_ID_TIMEOUT;
     loop {
         if let Ok(text) = target.logs_tail(200).await {
@@ -390,7 +406,7 @@ async fn capture_game_id(target: &dyn ServerTarget) -> Option<String> {
     }
 }
 
-async fn wait_for_udp_listening(target: &dyn ServerTarget) -> bool {
+pub(crate) async fn wait_for_udp_listening(target: &dyn ServerTarget) -> bool {
     let deadline = Instant::now() + VERIFY_TIMEOUT;
     loop {
         if !udp_listening(target).await.is_empty() {
@@ -406,7 +422,7 @@ async fn wait_for_udp_listening(target: &dyn ServerTarget) -> bool {
 /// Best-effort recovery: restore the backup (if one was made), fix perms, and always
 /// attempt to get the service running again — SPEC: "never leave service in unknown
 /// state silently." Returns a human-readable note for the audit log, never fails itself.
-async fn rollback(target: &dyn ServerTarget, worlds_path: &str, backup_path: Option<&str>) -> String {
+pub(crate) async fn rollback(target: &dyn ServerTarget, worlds_path: &str, backup_path: Option<&str>) -> String {
     let mut notes = Vec::new();
 
     if let Some(backup_path) = backup_path {

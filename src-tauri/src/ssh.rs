@@ -16,6 +16,7 @@ use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+use crate::audit::AuditDb;
 use crate::target::{ExecOutput, FileEntry, RunState, ServerTarget, ServiceAction, ServiceKind};
 
 /// Wraps a string for safe interpolation into a remote shell command (single-quoted,
@@ -47,6 +48,10 @@ pub struct SshSession {
     pub host: String,
     pub port: u16,
     pub user: String,
+    /// Set once, right after a successful connect (see `commands::connect`) — every
+    /// `exec` from that point on is recorded to the `ssh_commands` audit table. `None`
+    /// for the no-UI `examples/ssh_test.rs` harness, which has no audit db to write to.
+    audit: Option<(AuditDb, i64)>,
 }
 
 impl SshSession {
@@ -74,6 +79,7 @@ impl SshSession {
             host: host.to_string(),
             port,
             user: user.to_string(),
+            audit: None,
         })
     }
 
@@ -105,6 +111,7 @@ impl SshSession {
             host: host.to_string(),
             port,
             user: user.to_string(),
+            audit: None,
         })
     }
 
@@ -136,7 +143,52 @@ impl SshSession {
             .context("opening SSH channel")
     }
 
+    /// Wires up the audit trail (`ssh_commands` table) for this session — called once,
+    /// right after a successful connect (`commands::connect`), before the session is
+    /// ever handed to discovery or a `ServiceKind`. Every `exec` from then on, whether
+    /// called directly or through `SshTarget`'s internal `self.session.exec` calls, is
+    /// logged — this is the single choke point every remote command passes through.
+    pub fn attach_audit(&mut self, audit: AuditDb, session_id: i64) {
+        self.audit = Some((audit, session_id));
+    }
+
     pub async fn exec(&self, cmd: &str) -> Result<ExecOutput> {
+        let started = std::time::Instant::now();
+        let result = self.exec_inner(cmd).await;
+        let elapsed_ms = started.elapsed().as_millis() as i64;
+
+        if let Some((audit, session_id)) = &self.audit {
+            match &result {
+                Ok(out) => {
+                    audit
+                        .log_ssh_command(
+                            *session_id,
+                            cmd,
+                            Some(out.exit_status as i64),
+                            &out.stdout,
+                            &out.stderr,
+                            elapsed_ms,
+                        )
+                        .await
+                        .ok();
+                }
+                Err(e) => {
+                    audit
+                        .log_ssh_command(*session_id, cmd, None, "", "", elapsed_ms)
+                        .await
+                        .ok();
+                    audit
+                        .log_error(*session_id, "ssh_exec", &format!("{e:#}"), None)
+                        .await
+                        .ok();
+                }
+            }
+        }
+
+        result
+    }
+
+    async fn exec_inner(&self, cmd: &str) -> Result<ExecOutput> {
         let mut channel = self
             .handle
             .channel_open_session()
@@ -403,11 +455,23 @@ impl ServerTarget for SshTarget {
                 Ok(out.stdout.lines().map(str::to_string).collect())
             }
             ServiceKind::Docker { container } => {
-                // The host only ever sees `docker-proxy` (or nothing at all, under
-                // `--network host`) — never a process named "corekeeper" — so resolve
-                // the container's published host port(s) first and check those
-                // directly. Falls back to checking from inside the container when
-                // nothing is published (host networking).
+                // Try the cheap host-side check first: under `--network host` (common
+                // for game servers, to dodge NAT overhead) the process runs directly in
+                // the host's network namespace and shows up under its own name, exactly
+                // like the systemd/process case — confirmed on a real deployment where
+                // `ss` on the host showed `users:(("CoreKeeperServe",...))` directly.
+                let host_out = self
+                    .session
+                    .exec("ss -ulnp 2>/dev/null | grep -i corekeeper")
+                    .await?;
+                if !host_out.stdout.trim().is_empty() {
+                    return Ok(host_out.stdout.lines().map(str::to_string).collect());
+                }
+
+                // Bridge networking with published ports: the host only ever sees
+                // `docker-proxy`, never a process literally named "corekeeper," so
+                // resolve the container's published host port(s) and check those
+                // directly instead.
                 let ports_out = self
                     .session
                     .exec(&format!("docker port {} 2>/dev/null | grep -i udp", shq(container)))
@@ -438,20 +502,49 @@ impl ServerTarget for SshTarget {
                     .session
                     .exec(&format!("docker exec {} ss -uln 2>/dev/null", shq(container)))
                     .await?;
-                if !out.success() {
-                    // `ss` (or any binary) missing inside a minimal container image is
-                    // common, and some Docker/OCI runtime versions print the resulting
-                    // "exec failed" error to stdout despite the redirect above — treat
-                    // any nonzero exit as "couldn't check," never as literal listener
-                    // data.
-                    return Ok(Vec::new());
+                if out.success() {
+                    return Ok(out
+                        .stdout
+                        .lines()
+                        .filter(|l| !l.trim_start().starts_with("State"))
+                        .map(str::to_string)
+                        .collect());
                 }
-                Ok(out
-                    .stdout
-                    .lines()
-                    .filter(|l| !l.trim_start().starts_with("State"))
-                    .map(str::to_string)
-                    .collect())
+                // `ss` missing inside a minimal container image is common, and some
+                // Docker/OCI runtime versions print the resulting "exec failed" error to
+                // stdout despite the redirect above — `out.success()` above is what keeps
+                // that error text from ever being treated as literal listener data.
+
+                // Last resort: no host-side visibility (no --network host, no published
+                // ports) and no `ss` in the image — read the UDP socket tables straight
+                // out of /proc for the container's own network namespace. `cat`/`sh` are
+                // close to universal even in minimal images, unlike `ss`. Checks both v4
+                // and v6: .NET/Unity on Linux commonly binds a dual-stack IPv6 socket,
+                // which would only ever show up in udp6. Can't match an exact port here —
+                // confirmed against the reference LXC that Core Keeper binds an
+                // OS-assigned ephemeral UDP port (56967), not the commonly-assumed 27015
+                // — so "any bound UDP socket" is treated as good enough evidence for a
+                // container that only ever runs this one game server process.
+                let proc_out = self
+                    .session
+                    .exec(&format!(
+                        "docker exec {} sh -c 'cat /proc/net/udp /proc/net/udp6 2>/dev/null'",
+                        shq(container)
+                    ))
+                    .await?;
+                if proc_out.success() {
+                    let listeners: Vec<String> = proc_out
+                        .stdout
+                        .lines()
+                        .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with("sl"))
+                        .map(str::to_string)
+                        .collect();
+                    if !listeners.is_empty() {
+                        return Ok(listeners);
+                    }
+                }
+
+                Ok(Vec::new())
             }
         }
     }
