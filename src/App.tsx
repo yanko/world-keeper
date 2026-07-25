@@ -1,49 +1,121 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
 import "./App.css";
+import { Toaster } from "@/components/ui/sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConnectionBar, type ConnectionStatus } from "@/components/ckm/ConnectionBar";
+import { DiscoveryConfirm } from "@/components/ckm/DiscoveryConfirm";
+import { StatsPanel } from "@/components/ckm/StatsPanel";
+import type { AppConfig, DiscoveryResult } from "@/lib/api";
+import * as api from "@/lib/api";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
+  const [discoveryResult, setDiscoveryResult] = useState<DiscoveryResult | null>(null);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+  useEffect(() => {
+    api
+      .getConfig()
+      .then((cfg) => {
+        setConfig(cfg);
+        setSelectedProfileId(cfg.activeProfileId ?? cfg.profiles[0]?.id ?? null);
+      })
+      .catch((e) => toast.error(String(e)));
+  }, []);
+
+  function selectProfile(id: string) {
+    setSelectedProfileId(id);
+    api.setActiveProfile(id).catch(() => {});
+  }
+
+  async function handleConnect(profileId: string, password: string) {
+    setStatus("connecting");
+    try {
+      const result = await api.connect(profileId, password);
+      if (result.needsDiscovery) {
+        setStatus("connected-raw");
+        const discovery = await api.runDiscovery();
+        setDiscoveryResult(discovery);
+      } else {
+        setStatus("connected-target");
+      }
+    } catch (e) {
+      setStatus("disconnected");
+      throw e;
+    }
+  }
+
+  async function handleDisconnect() {
+    try {
+      await api.disconnect();
+    } finally {
+      setStatus("disconnected");
+      setDiscoveryResult(null);
+    }
+  }
+
+  async function handleRescan() {
+    try {
+      const discovery = await api.runDiscovery();
+      setDiscoveryResult(discovery);
+    } catch (e) {
+      toast.error(String(e));
+    }
+  }
+
+  async function handleConfirmed() {
+    const cfg = await api.getConfig();
+    setConfig(cfg);
+    setDiscoveryResult(null);
+    setStatus("connected-target");
   }
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <main className="flex h-screen flex-col bg-background text-foreground">
+      <Toaster />
+      <h1 className="px-4 pt-4 text-lg font-semibold">Core Keeper World Manager</h1>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
+      {config ? (
+        <ConnectionBar
+          config={config}
+          selectedProfileId={selectedProfileId}
+          onSelectProfile={selectProfile}
+          onConfigChanged={setConfig}
+          status={status}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
         />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      ) : (
+        <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+      )}
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+        {status === "connected-raw" && discoveryResult && selectedProfileId && (
+          <DiscoveryConfirm
+            profileId={selectedProfileId}
+            result={discoveryResult}
+            onRescan={handleRescan}
+            onConfirmed={handleConfirmed}
+          />
+        )}
+
+        {status === "connected-target" && <StatsPanel />}
+
+        {status === "disconnected" && (
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle>No active connection</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Pick or add a profile above, then Connect. First connect to a profile
+              triggers the discovery probe automatically.
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </main>
   );
 }

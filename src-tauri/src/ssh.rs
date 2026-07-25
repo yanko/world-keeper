@@ -283,6 +283,21 @@ impl ServerTarget for SshTarget {
         self.session.exec(&cmd).await
     }
 
+    async fn active_since(&self) -> Result<Option<String>> {
+        let cmd = match &self.service_kind {
+            ServiceKind::Systemd { unit } => {
+                format!("systemctl show -p ActiveEnterTimestamp --value {}", shq(unit))
+            }
+            ServiceKind::Docker { container } => {
+                format!("docker inspect -f {{{{.State.StartedAt}}}} {}", shq(container))
+            }
+            ServiceKind::Process { .. } => return Ok(None),
+        };
+        let out = self.session.exec(&cmd).await?;
+        let value = out.stdout.trim();
+        Ok(if value.is_empty() { None } else { Some(value.to_string()) })
+    }
+
     async fn fix_perms(&self, path: &str) -> Result<()> {
         match (&self.service_kind, &self.steam_user) {
             (ServiceKind::Systemd { .. }, Some(user)) => {

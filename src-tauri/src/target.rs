@@ -21,6 +21,9 @@ pub enum ServiceKind {
     Docker {
         container: String,
     },
+    // `rename_all` on the enum only renames variant tags, not struct-variant fields —
+    // this override keeps Process's fields camelCase like everything else in the app.
+    #[serde(rename_all = "camelCase")]
     Process {
         stop_cmd: String,
         start_cmd: String,
@@ -75,6 +78,9 @@ pub trait ServerTarget: Send + Sync {
     /// alongside the log drawer UI, not here.
     async fn logs_tail(&self, lines: u32) -> anyhow::Result<String>;
     async fn service_control(&self, action: ServiceAction) -> anyhow::Result<ExecOutput>;
+    /// When the service last (re)started, if the ServiceKind can report it (systemd's
+    /// `ActiveEnterTimestamp`, docker's `State.StartedAt`); `None` for Process targets.
+    async fn active_since(&self) -> anyhow::Result<Option<String>>;
     async fn fix_perms(&self, path: &str) -> anyhow::Result<()>;
     fn worlds_path(&self) -> &str;
     fn service_kind(&self) -> &ServiceKind;

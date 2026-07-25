@@ -25,6 +25,7 @@ pub struct ServiceKindCandidate {
     pub kind: ServiceKind,
     pub exec_start: Option<String>,
     pub working_directory: Option<String>,
+    pub steam_user: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,6 +125,7 @@ async fn probe_service_kind(session: &SshSession) -> ServiceKindProbe {
                     kind: ServiceKind::Systemd { unit },
                     exec_start: info.exec_start,
                     working_directory: info.working_directory,
+                    steam_user: info.user,
                 });
             }
             return ServiceKindProbe {

@@ -10,6 +10,7 @@ use crate::discovery::{self, DiscoveryResult};
 use crate::secrets;
 use crate::ssh::{SshSession, SshTarget};
 use crate::state::{AppState, Connection};
+use crate::stats::{self, ServerStats};
 
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
@@ -229,4 +230,16 @@ pub async fn confirm_discovery(
         .map_err(err)?;
 
     Ok(cfg)
+}
+
+// ---- stats -----------------------------------------------------------------
+
+#[tauri::command]
+pub async fn get_stats(state: State<'_, AppState>) -> Result<ServerStats, String> {
+    let guard = state.connection.lock().await;
+    match guard.as_ref() {
+        Some(Connection::Target { target, .. }) => stats::collect(target).await.map_err(err),
+        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
+        None => Err("not connected".to_string()),
+    }
 }

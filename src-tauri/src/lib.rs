@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod secrets;
 mod state;
+mod stats;
 
 // Public so `examples/ssh_test.rs` (a manual, no-UI connectivity check the user runs
 // themselves against the real server) can reach them without duplicating the transport.
@@ -63,6 +64,7 @@ pub fn run() {
             commands::disconnect,
             commands::run_discovery,
             commands::confirm_discovery,
+            commands::get_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
