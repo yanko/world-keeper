@@ -21,8 +21,8 @@ and where worlds live are **discovered on connect**, never hard-coded.
 
 ## Real environment (the first target)
 
-- Proxmox VE 9.2 homelab. Core Keeper runs in **LXC 106**, hostname `core-keeper`.
-- SSH: `root@10.0.0.68`.
+- Proxmox VE 9.2 homelab. Core Keeper runs in an **LXC container**, hostname `core-keeper`.
+- SSH: `root@192.168.1.50` (placeholder — swap in your own host).
 - Server runs as user **`steam`** under **systemd**:
   - unit: `corekeeper` — `User=steam`,
     `WorkingDirectory=/home/steam/corekeeper`,
@@ -122,9 +122,9 @@ generic AI-default looks (cream+serif+terracotta; black+acid-green).
 1. Confirm the scaffold built and runs (`pnpm tauri dev`).
 2. Wire `tauri-plugin-store` (config), `tauri-plugin-sql` (audit), `keyring`.
 3. Define the `ServerTarget` trait + `ServiceKind` enum; implement the SSH transport with
-   `russh`/`russh-sftp`; get a password connect + `exec` working against `root@10.0.0.68`.
+   `russh`/`russh-sftp`; get a password connect + `exec` working against `root@192.168.1.50`.
 4. Build the discovery probe; confirm it correctly identifies the systemd/`corekeeper`
-   target and the worlds path on LXC 106.
+   target and the worlds path on the LXC.
 5. Then the read-only stats, then the push state machine (backup+rollback before copy),
    then pull, then key auth, then the Docker ServiceKind.
 

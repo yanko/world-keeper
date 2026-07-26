@@ -64,6 +64,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet,
+            commands::get_about_info,
             commands::get_config,
             commands::upsert_profile,
             commands::delete_profile,

@@ -24,6 +24,7 @@ import type { AppConfig, AuthMethod, Profile } from "@/lib/api";
 import * as api from "@/lib/api";
 import { useOperations } from "@/lib/operations";
 import { ThemeToggle } from "@/components/ckm/ThemeToggle";
+import { AboutDialog } from "@/components/ckm/AboutDialog";
 
 export type ConnectionStatus =
   | "disconnected"
@@ -282,7 +283,8 @@ export function ConnectionBar({
         </Button>
       )}
 
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
+        <AboutDialog />
         <ThemeToggle />
       </div>
 

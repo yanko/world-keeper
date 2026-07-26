@@ -5,6 +5,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
+// ---- about ---------------------------------------------------------------------
+
+export interface AboutInfo {
+  version: string;
+  configPath: string;
+  dbPath: string;
+  keysDir: string;
+}
+
+export const getAboutInfo = () => invoke<AboutInfo>("get_about_info");
+
 export type AuthMethod = "key" | "password";
 
 export type ServiceKind =

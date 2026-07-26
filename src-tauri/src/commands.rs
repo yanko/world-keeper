@@ -3,7 +3,7 @@
 //! `invoke`.
 
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::audit::{
     BackupRow, CommandFilter, CommandRow, ErrorFilter, ErrorRow, EventFilter, EventRow, SessionRow,
@@ -587,4 +587,32 @@ pub async fn restore_backup(
     restore::run_restore(&app, &state.audit, state.session_id, &target, &backup_path, slot)
         .await
         .map_err(err)
+}
+
+// ---- about -------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AboutInfo {
+    pub version: String,
+    /// Where `tauri-plugin-store` actually persists profiles — computed the same way
+    /// `config.rs`'s `app.store(STORE_FILE)` resolves it, not assumed.
+    pub config_path: String,
+    pub db_path: String,
+    pub keys_dir: String,
+}
+
+/// Backs the About dialog: version plus the exact on-disk paths for the profile store,
+/// audit db, and generated-keys directory, so "where did this put its stuff" has a real
+/// answer (and a button) instead of sending someone to the README.
+#[tauri::command]
+pub fn get_about_info(app: AppHandle) -> Result<AboutInfo, String> {
+    let config_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(AboutInfo {
+        version: app.package_info().version.to_string(),
+        config_path: config_dir.join("config.json").to_string_lossy().to_string(),
+        db_path: data_dir.join("ckmanager.db").to_string_lossy().to_string(),
+        keys_dir: data_dir.join("keys").to_string_lossy().to_string(),
+    })
 }

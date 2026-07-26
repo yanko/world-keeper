@@ -9,9 +9,9 @@ LXC (systemd), a Docker container on the host, or a raw process. How the game se
 stopped/started and where its world files live are **discovered on connect**, not
 declared up front. A Windows target may be added later as a distinct transport.
 
-Author context: homelab, Proxmox VE 9.2, LXC 106 (`core-keeper`), server currently runs
-as user `steam` under systemd, worlds under the Unity3D config dir. This is the first
-target, not a hard-coded assumption.
+Author context: homelab, Proxmox VE 9.2, an LXC container (`core-keeper`), server
+currently runs as user `steam` under systemd, worlds under the Unity3D config dir. This
+is the first target, not a hard-coded assumption.
 
 ---
 
@@ -105,7 +105,7 @@ together —
 - `N.world.gzip.pugbackup`  (Core Keeper's own rolling backup, ~1 save-cycle behind)
 where `N` is the slot index. Operating on "world N" means operating on **all files
 matching `N.world.gzip*`** as an atomic set. Detection globs `*.world.gzip` and groups by
-leading slot index. (Confirmed from LXC 106: `0.world.gzip` + `0.world.gzip.pugbackup`.)
+leading slot index. (Confirmed from a real LXC: `0.world.gzip` + `0.world.gzip.pugbackup`.)
 
 ---
 
@@ -123,9 +123,9 @@ app figures out the ServiceKind itself.
 {
   "profiles": [
     {
-      "id": "ck-lxc-106",
+      "id": "ck-lxc-1",
       "name": "Core Keeper LXC",
-      "host": "10.0.0.68",
+      "host": "192.168.1.50",
       "user": "root",
       "auth": "key",                 // "key" | "password"
       "keyPath": "~/.ssh/id_ed25519",// when auth=key
@@ -146,7 +146,7 @@ app figures out the ServiceKind itself.
     }
   ],
   "worldDetection": { "patterns": ["*.world.gzip"] },
-  "activeProfileId": "ck-lxc-106"
+  "activeProfileId": "ck-lxc-1"
 }
 ```
 

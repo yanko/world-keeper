@@ -150,7 +150,7 @@ open the folder in **Claude Code** and start with the tasks in `CONTEXT.md` →
 > design, the real server facts, and the reasoning. Start with the "Suggested first
 > tasks" in CONTEXT.md: wire up the config store, SQLite audit, and keyring, then define
 > the `ServerTarget` trait + `ServiceKind` enum and implement the `russh` SSH transport
-> with a password connect + `exec` against `root@10.0.0.68`, then the discovery probe.
+> with a password connect + `exec` against `root@192.168.1.50`, then the discovery probe.
 > Keep all target-specific logic inside the SSH+ServiceKind impl; the state machine stays
 > target-agnostic. Ask me to run any server-side commands you need output from (e.g. the
 > `_launch.sh` contents and the journal line for the game id).

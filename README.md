@@ -103,5 +103,10 @@ Credential Manager), never in a plaintext file.
 - [SPEC.md](SPEC.md) — full design spec: architecture, config schema, the safe
   push/pull state machine, auto-discovery, audit schema, and the build order this was
   actually built in (including everything added after the initial spec).
-- [CONTEXT.md](CONTEXT.md) — handoff notes: the real homelab environment this was
-  built against and the reasoning behind the key design decisions.
+- [CONTEXT.md](CONTEXT.md) — handoff notes: the homelab environment this was built
+  against (details genericized) and the reasoning behind the key design decisions.
+
+## License
+
+[MIT](LICENSE) — this is a homelab tool, provided as-is with no warranty; see
+the disclaimer shown in-app on first launch.

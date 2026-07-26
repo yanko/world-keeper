@@ -6,7 +6,7 @@
 //!   $env:CK_SSH_PASSWORD = "..."   # PowerShell; avoids shell history
 //!   cargo run --example ssh_test
 //!
-//! Optional overrides: CK_SSH_HOST (default 10.0.0.68), CK_SSH_USER (default root),
+//! Optional overrides: CK_SSH_HOST (default 192.168.1.50), CK_SSH_USER (default root),
 //! CK_SSH_PORT (default 22).
 
 use ck_world_manager_lib::discovery;
@@ -14,7 +14,7 @@ use ck_world_manager_lib::ssh::SshSession;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let host = std::env::var("CK_SSH_HOST").unwrap_or_else(|_| "10.0.0.68".to_string());
+    let host = std::env::var("CK_SSH_HOST").unwrap_or_else(|_| "192.168.1.50".to_string());
     let user = std::env::var("CK_SSH_USER").unwrap_or_else(|_| "root".to_string());
     let port: u16 = std::env::var("CK_SSH_PORT")
         .ok()
