@@ -269,17 +269,16 @@ async fn probe_systemd_unit(session: &SshSession, unit: &str) -> SystemdUnitInfo
     }
 }
 
-/// Step C (SPEC §8): locate the worlds dir via `find`. Docker's bind-mount source is
-/// preferred when a docker container was found, since that's the host path (not the
-/// in-container path).
+/// Step C (SPEC §8): locate the worlds dir via `find`. For a Docker target, the search
+/// is scoped to the container's own host-side mounts (never inside the container itself
+/// — Docker containers don't expose SSH, so every file op has to go through the host's
+/// filesystem view of whatever's mounted in).
 async fn probe_worlds_path(
     session: &SshSession,
     service_kind: &Option<ServiceKind>,
 ) -> (Option<String>, Vec<String>) {
     if let Some(ServiceKind::Docker { container }) = service_kind {
-        if let Some(path) = probe_docker_bind_mount(session, container).await {
-            return (Some(path), Vec::new());
-        }
+        return probe_docker_worlds_path(session, container).await;
     }
 
     let Ok(out) = session
@@ -288,9 +287,16 @@ async fn probe_worlds_path(
     else {
         return (None, Vec::new());
     };
+    dedupe_parent_dirs(&out.stdout)
+}
 
-    let mut dirs: Vec<String> = out
-        .stdout
+/// Takes `find -name '*.world.gzip'` output (one match per line) to a worlds-path
+/// result: the parent dir of each match, deduped — 0 found, exactly 1 (confident), or
+/// several (surfaced as candidates, never guessed at). Shared between the plain-host
+/// search above and the per-mount Docker search below, which both reduce to this same
+/// "here are the matches, now what" step.
+fn dedupe_parent_dirs(find_stdout: &str) -> (Option<String>, Vec<String>) {
+    let mut dirs: Vec<String> = find_stdout
         .lines()
         .filter_map(|line| {
             let path = std::path::Path::new(line);
@@ -307,30 +313,68 @@ async fn probe_worlds_path(
     }
 }
 
-async fn probe_docker_bind_mount(session: &SshSession, container: &str) -> Option<String> {
+/// Can't guess a Docker container's worlds path from its mount *destination* path the
+/// way an earlier version of this tried to (checking for "unity3d"/".config" in the
+/// destination) — that only happened to work because the first Docker deployment this
+/// was built against bind-mounted Unity3D's own per-user config dir 1:1. Other images
+/// lay out their internal filesystem completely differently: `ich777/steamcmd:
+/// corekeeper` (seen running on Unraid) bind-mounts a flat `/serverdata/serverfiles`
+/// and nests the actual world files two levels down, under `Save/worlds/`, inside that
+/// — no naming convention to pattern-match on, and a container can have several
+/// unrelated mounts (that image also separately mounts `/serverdata/steamcmd`, which
+/// has nothing to do with worlds). So: search inside *every* one of the container's
+/// host-side mount sources for `*.world.gzip`, same as the plain-host search above,
+/// just scoped to the container's own mounts instead of `/home` — searching the whole
+/// host wouldn't help, since a bind-mount source is rarely under `/home` itself (e.g.
+/// Unraid's are under `/mnt/user/appdata/`).
+async fn probe_docker_worlds_path(
+    session: &SshSession,
+    container: &str,
+) -> (Option<String>, Vec<String>) {
+    let Some(mount_sources) = docker_mount_sources(session, container).await else {
+        return (None, Vec::new());
+    };
+
+    let mut all_matches = String::new();
+    for source in &mount_sources {
+        if let Ok(out) = session
+            .exec(&format!("find {} -name '*.world.gzip' 2>/dev/null", shq(source)))
+            .await
+        {
+            all_matches.push_str(&out.stdout);
+            if !out.stdout.ends_with('\n') {
+                all_matches.push('\n');
+            }
+        }
+    }
+    dedupe_parent_dirs(&all_matches)
+}
+
+/// Every mount's host-side source path, `bind` or named `volume` alike — both are, in
+/// the end, just a real directory on the host filesystem that plain `find`/SFTP over
+/// this same SSH session can already read and write.
+async fn docker_mount_sources(session: &SshSession, container: &str) -> Option<Vec<String>> {
+    // The Go-template format string contains a space ("json .Mounts") — unquoted, the
+    // remote shell word-splits it into two argv entries before `docker` ever sees it,
+    // breaking `--format`'s single-argument parsing. Bug predates this function (the
+    // `probe_docker_bind_mount` this replaced had the same unquoted string); it was
+    // silently masked there because that deployment's real worlds path happened to
+    // live under `/home`, where the fallback `find` still found it regardless of
+    // whether this mount lookup actually worked.
     let out = session
         .exec(&format!(
-            "docker inspect {} --format {{{{json .Mounts}}}} 2>/dev/null",
-            shq(container)
+            "docker inspect {} --format {} 2>/dev/null",
+            shq(container),
+            shq("{{json .Mounts}}")
         ))
         .await
         .ok()?;
     let mounts: serde_json::Value = serde_json::from_str(out.stdout.trim()).ok()?;
     let mounts = mounts.as_array()?;
-
-    // Prefer a bind mount whose destination looks like the Unity3D config dir; fall
-    // back to the first bind mount otherwise.
-    let mut first_bind = None;
-    for mount in mounts {
-        if mount.get("Type").and_then(|t| t.as_str()) != Some("bind") {
-            continue;
-        }
-        let source = mount.get("Source").and_then(|s| s.as_str())?.to_string();
-        let dest = mount.get("Destination").and_then(|d| d.as_str()).unwrap_or("");
-        if dest.contains("unity3d") || dest.contains(".config") {
-            return Some(source);
-        }
-        first_bind.get_or_insert(source);
-    }
-    first_bind
+    Some(
+        mounts
+            .iter()
+            .filter_map(|m| m.get("Source").and_then(|s| s.as_str()).map(String::from))
+            .collect(),
+    )
 }

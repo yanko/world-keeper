@@ -559,3 +559,47 @@ listed backup's path happens to match a `backups` row, its `note`/`game_id_befor
 attached; if not, the backup still shows up, just without that annotation. `BackupRow`
 (the old db-shaped type) was replaced by `BackupInfo` (path/slot/bytes/modified/note/
 gameIdBefore) end to end, frontend included.
+
+---
+
+## 19. Docker worlds-path discovery fix — Unraid (2026-07-26)
+
+Found while confirming the app against a Core Keeper container running on Unraid
+(`ich777/steamcmd:corekeeper`, via SSH to the Unraid host itself — Unraid's Docker
+containers don't expose SSH directly, so this is the same "SSH to a host that has
+`docker` CLI" model the app already assumed for Docker targets, not anything Unraid-
+specific). Discovery correctly found the container (`grep -i core` against `docker ps`
+still only matches the one container), but resolved the *worlds path* wrong.
+
+Root cause: `probe_docker_bind_mount` guessed the worlds path from a mount's
+**destination** string, checking for `"unity3d"`/`".config"` — a heuristic that only
+ever worked because the first Docker deployment this was built against happened to
+bind-mount Unity3D's own per-user config path 1:1. `ich777`'s image instead bind-mounts
+a flat `/serverdata/serverfiles`, with the actual worlds nested two levels down at
+`Save/worlds/` inside it — matching neither heuristic string, and falling through to
+"first bind mount in whatever order `docker inspect` returns them," which on this
+container is a *different*, unrelated mount (`/serverdata/steamcmd`) — wrong regardless.
+
+Fix: `probe_docker_worlds_path` now searches **inside every one of the container's
+host-side mount sources** for `*.world.gzip` (`docker inspect`'s `Mounts[].Source`,
+`bind` or named `volume` alike — both are just a real host directory), the same
+`find`-based approach already used for non-Docker targets, just scoped to the
+container's own mounts instead of `/home`. No destination-path guessing left at all —
+this generalizes to any image's internal layout, Unraid or otherwise, since it doesn't
+depend on directory *naming*, only on where the actual world files really are.
+
+Second bug caught testing the fix itself: `docker_mount_sources`'s `docker inspect
+--format {{json .Mounts}}` was sent to the remote shell **unquoted**. The format string
+contains a space (`"json .Mounts"`), so the shell word-splits it into two argv entries
+before `docker` ever parses `--format` — breaking the mount lookup outright. This bug
+predates this fix (the `probe_docker_bind_mount` it replaced had the identical unquoted
+string) but was silently masked before: that deployment's real worlds path happened to
+sit under `/home`, where the fallback `find /home` search found it regardless of
+whether the mount lookup itself actually worked. Fixed by `shq()`-quoting the format
+string, same as every other value interpolated into a remote command elsewhere.
+
+Third: `stats::find_game_id`'s marker list gained `"Server Game ID:"` — this image's
+own `ich777` launch wrapper logs the game id in yet a third format, distinct from both
+previously-seen ones (§ "Docker worlds-path discovery" above and the reference LXC's
+`GameID:`). Confirms the pattern is genuinely "every packaging logs this differently,"
+not just two known variants — expect to keep adding markers as more turn up.

@@ -106,12 +106,16 @@ pub async fn collect(target: &dyn ServerTarget) -> anyhow::Result<ServerStats> {
 /// the tail window never wins over the fresh one. Shared with the push state machine's
 /// CapturingGameId step, which needs the identical parse.
 ///
-/// Different Core Keeper builds log this differently — confirmed on a Docker deployment
-/// that says `Started session with info: <id>` instead. `GameID path: ...` is *not* a
-/// match for the first marker (no colon directly after "GameID"), so both markers can
-/// coexist without one shadowing the other.
+/// Different Core Keeper builds/wrappers log this differently — confirmed variants so
+/// far: the reference LXC's `GameID: <id>`, one Docker deployment's `Started session
+/// with info: <id>`, and `ich777/steamcmd:corekeeper`'s own launch wrapper (seen
+/// running on Unraid) printing `Server Game ID: <id>` instead — that last one is the
+/// wrapper script's own line, not Core Keeper's, so it's worth expecting more of these
+/// as more packagings turn up. `GameID path: ...` is *not* a match for the first marker
+/// (no colon directly after "GameID"), so all markers can coexist without one shadowing
+/// another.
 pub fn find_game_id(text: &str) -> Option<String> {
-    const MARKERS: &[&str] = &["GameID:", "Started session with info:"];
+    const MARKERS: &[&str] = &["GameID:", "Started session with info:", "Server Game ID:"];
     text.lines().rev().find_map(|line| {
         for marker in MARKERS {
             if let Some(idx) = line.find(marker) {
