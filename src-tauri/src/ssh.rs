@@ -55,11 +55,9 @@ impl client::Handler for Client {
 pub struct SshSession {
     handle: Arc<Handle<Client>>,
     pub host: String,
-    pub port: u16,
-    pub user: String,
     /// Set once, right after a successful connect (see `commands::connect`) — every
     /// `exec` from that point on is recorded to the `ssh_commands` audit table. `None`
-    /// for the no-UI `examples/ssh_test.rs` harness, which has no audit db to write to.
+    /// briefly between `connect_password`/`connect_key` returning and that attach call.
     audit: Option<(AuditDb, i64)>,
 }
 
@@ -86,8 +84,6 @@ impl SshSession {
         Ok(Self {
             handle: Arc::new(handle),
             host: host.to_string(),
-            port,
-            user: user.to_string(),
             audit: None,
         })
     }
@@ -118,8 +114,6 @@ impl SshSession {
         Ok(Self {
             handle: Arc::new(handle),
             host: host.to_string(),
-            port,
-            user: user.to_string(),
             audit: None,
         })
     }

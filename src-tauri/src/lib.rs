@@ -2,6 +2,7 @@ mod audit;
 mod command_reference;
 mod commands;
 mod config;
+mod discovery;
 mod envelope;
 mod keygen;
 mod localworld;
@@ -9,15 +10,11 @@ mod pull;
 mod push;
 mod restore;
 mod secrets;
+mod ssh;
 mod state;
 mod stats;
+mod target;
 mod terminal;
-
-// Public so `examples/ssh_test.rs` (a manual, no-UI connectivity check the user runs
-// themselves against the real server) can reach them without duplicating the transport.
-pub mod discovery;
-pub mod ssh;
-pub mod target;
 
 use tauri::Manager;
 use tokio::sync::Mutex;

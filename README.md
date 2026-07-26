@@ -70,8 +70,6 @@ Useful side commands while working on the Rust side, from `src-tauri/`:
 ```powershell
 cargo check          # fast type-check
 cargo clippy          # lints
-cargo run --example ssh_test   # manual SSH connectivity check against a real host,
-                                # without needing the UI (see the file for env vars)
 ```
 
 ## Building for release

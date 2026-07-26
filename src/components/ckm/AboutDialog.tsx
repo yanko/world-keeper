@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { InfoIcon, FolderOpenIcon, CopyIcon } from "lucide-react";
+import { InfoIcon, FolderOpenIcon, CopyIcon, CopyCheckIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
@@ -84,11 +84,35 @@ function CommandRow({ label, command, targetKind }: { label: string; command: st
   );
 }
 
+/// Plain-text rendering of the whole reference — one line per command, grouped under a
+/// `== Group ==` header — for the single "copy everything" button.
+function formatAllCommands(groups: CommandRefGroup[]): string {
+  return groups
+    .map((group) => {
+      const lines = group.entries.map((e) => {
+        const kind = e.targetKind ? ` [${e.targetKind}]` : "";
+        return `${e.label}${kind}: ${e.command}`;
+      });
+      return `== ${group.group} ==\n${lines.join("\n")}`;
+    })
+    .join("\n\n");
+}
+
 export function AboutDialog() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState<AboutInfo | null>(null);
   const [commandRef, setCommandRef] = useState<CommandRefGroup[] | null>(null);
+
+  async function copyAllCommands() {
+    if (!commandRef) return;
+    try {
+      await writeText(formatAllCommands(commandRef));
+      toast.success(t("about.commandReference.allCopied"));
+    } catch (e) {
+      toast.error(String(e));
+    }
+  }
 
   async function show() {
     setOpen(true);
@@ -121,7 +145,7 @@ export function AboutDialog() {
               {info ? t("about.versionDesc", { version: info.version }) : t("about.loading")}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
             {info && (
               <div className="grid gap-2">
                 <PathRow label={t("about.connectionProfiles")} path={info.configPath} />
@@ -130,26 +154,44 @@ export function AboutDialog() {
               </div>
             )}
             {commandRef && (
-              <div className="grid gap-3">
-                <div className="text-sm font-medium">{t("about.commandReference.title")}</div>
-                <p className="text-xs text-muted-foreground">{t("about.commandReference.desc")}</p>
-                {commandRef.map((group) => (
-                  <div key={group.group} className="grid gap-1.5">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      {group.group}
-                    </div>
-                    <div className="grid gap-1.5">
-                      {group.entries.map((entry, i) => (
-                        <CommandRow
-                          key={i}
-                          label={entry.label}
-                          command={entry.command}
-                          targetKind={entry.targetKind}
-                        />
-                      ))}
-                    </div>
+              <div className="flex min-h-0 flex-1 flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-medium">{t("about.commandReference.title")}</div>
+                    <p className="text-xs text-muted-foreground">{t("about.commandReference.desc")}</p>
                   </div>
-                ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    title={t("about.commandReference.copyAll")}
+                    onClick={copyAllCommands}
+                  >
+                    <CopyCheckIcon />
+                    {t("about.commandReference.copyAll")}
+                  </Button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  <div className="grid gap-3">
+                    {commandRef.map((group) => (
+                      <div key={group.group} className="grid gap-1.5">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {group.group}
+                        </div>
+                        <div className="grid gap-1.5">
+                          {group.entries.map((entry, i) => (
+                            <CommandRow
+                              key={i}
+                              label={entry.label}
+                              command={entry.command}
+                              targetKind={entry.targetKind}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>

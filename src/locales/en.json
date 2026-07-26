@@ -326,7 +326,9 @@
     "commandCopied": "Command copied",
     "commandReference": {
       "title": "Command reference",
-      "desc": "Every remote command this app can run, grouped by what you'd be doing when it runs. Shows placeholders like <worldsPath> until you're connected, then the real values for this server."
+      "desc": "Every remote command this app can run, grouped by what you'd be doing when it runs. Shows placeholders like <worldsPath> until you're connected, then the real values for this server.",
+      "copyAll": "Copy all",
+      "allCopied": "Copied all commands"
     }
   },
   "disclaimer": {

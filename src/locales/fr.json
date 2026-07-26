@@ -326,7 +326,9 @@
     "commandCopied": "Commande copiée",
     "commandReference": {
       "title": "Référence des commandes",
-      "desc": "Chaque commande distante que l'application peut exécuter, groupée selon le contexte d'utilisation. Affiche des espaces réservés comme <worldsPath> tant que vous n'êtes pas connecté, puis les valeurs réelles pour ce serveur."
+      "desc": "Chaque commande distante que l'application peut exécuter, groupée selon le contexte d'utilisation. Affiche des espaces réservés comme <worldsPath> tant que vous n'êtes pas connecté, puis les valeurs réelles pour ce serveur.",
+      "copyAll": "Tout copier",
+      "allCopied": "Toutes les commandes copiées"
     }
   },
   "disclaimer": {
