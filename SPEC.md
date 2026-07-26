@@ -603,3 +603,52 @@ own `ich777` launch wrapper logs the game id in yet a third format, distinct fro
 previously-seen ones (§ "Docker worlds-path discovery" above and the reference LXC's
 `GameID:`). Confirms the pattern is genuinely "every packaging logs this differently,"
 not just two known variants — expect to keep adding markers as more turn up.
+
+---
+
+## 20. Flexible local-file naming for push + exact-pair backup/restore (2026-07-26)
+
+Two things this same Unraid deployment turned up, both about being precise on "what
+counts as world data":
+
+**Pushing a file that isn't named `N.world.gzip`.** `localworld.rs`'s local-file
+recognition used to *require* the exact `N.world.gzip[.pugbackup]` naming to accept a
+file at all — a manual export, a file shared by someone else, anything renamed along
+the way, was rejected outright ("no `*.world.gzip` files found"), even though the app
+already writes the remote copy under the canonical `{slot}.world.gzip` name regardless
+of the source filename (`upload_staged`, unchanged). Researched whether there's a
+reliable way to validate a file is genuinely a Core Keeper world beyond its name: every
+save-editor project and the wiki describe the decompressed format as an undocumented,
+proprietary Unity-serialized structure, and the most feature-complete community
+world-editing tool (`CoreKeepersWorkshop`) reads the *running game's memory* rather than
+the file — a real signal of how far this has actually been reverse-engineered.
+
+First attempt at a content check (gzip magic bytes + an actual decompression attempt)
+was **wrong and got reverted the same day**: despite the `.world.gzip` extension, these
+files aren't standard gzip at all — confirmed directly by running the reference `gzip
+-t` utility against a real `0.world.gzip`, which rejects it outright ("not in gzip
+format"); the real first bytes aren't `1F 8B` either. That check was validating against
+a format these files don't use, and briefly broke pushing *every* world file, strictly
+named ones included, until caught. No known alternative signature exists to check for
+instead, so recognition is filename-only: a file whose name merely *contains*
+`.world.gzip` is accepted with no content validation at all.
+
+Such a file, not matching the strict `N.world.gzip` naming, is accepted as a
+`LocalWorldCandidate` with `slot_inferred: false` and `slot` defaulted to `0`.
+`PushPanel` shows an editable slot number field for this case (instead of the
+auto-detected picker) with a hint recommending the `N.world.gzip` naming for next time.
+Doubles as the way to seed a brand-new slot (1, 2, …) from an arbitrary world file, not
+just re-push slot 0 — see §"multiple worlds" discussion, 2026-07-26.
+
+**Exact-pair backup/restore.** `push::back_up` used to capture everything matching
+`{slot}.world.gzip*` — a wildcard that only ever meant "the world + its pugbackup" on
+the reference LXC, where those were the only two variants that existed. The `ich777`
+Unraid image also keeps its own `.old`/`.old2`/`.backup` snapshots, plus whatever manual
+backups a user makes (confirmed: a real `0.world.gzip.manual-2026-07-26` got swept into
+a backup this way) — all sharing the same prefix, none of them "the world." Both
+`push::back_up` and `restore::copy_backup_into_place` now name the exact two files
+(`{slot}.world.gzip`, `{slot}.world.gzip.pugbackup`) instead of globbing, matching
+CONTEXT.md's own "atomic pair" model — a restore can no longer silently overwrite
+something unrelated just because it happened to share a filename prefix, and it's
+forward-compatible with older, over-inclusive backups (cherry-picks the real pair back
+out, ignores whatever else is sitting in that backup folder).

@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager, State};
 use crate::audit::{
     BackupRow, CommandFilter, CommandRow, ErrorFilter, ErrorRow, EventFilter, EventRow, SessionRow,
 };
+use crate::command_reference::{self, CommandRefGroup, KnownValues};
 use crate::config::{self, AppConfig, Discovered, Profile};
 use crate::discovery::{self, DiscoveryResult};
 use crate::keygen;
@@ -634,4 +635,23 @@ pub fn get_about_info(app: AppHandle) -> Result<AboutInfo, String> {
         db_path: data_dir.join("ckmanager.db").to_string_lossy().to_string(),
         keys_dir: data_dir.join("keys").to_string_lossy().to_string(),
     })
+}
+
+/// Backs the About dialog's "command reference" list — every remote shell command the
+/// app can issue, with real values substituted in wherever this connection has already
+/// resolved them (worlds path, service unit/container), placeholders otherwise. Never
+/// fails: with no connection at all, `KnownValues::default()` just renders every entry
+/// as a placeholder, which is a legitimate (and useful) result, not an error.
+#[tauri::command]
+pub async fn get_command_reference(state: State<'_, AppState>) -> Result<Vec<CommandRefGroup>, String> {
+    let guard = state.connection.lock().await;
+    let known = match guard.as_ref() {
+        Some(Connection::Target { target, .. }) => KnownValues {
+            worlds_path: Some(target.worlds_path().to_string()),
+            service_kind: Some(target.service_kind().clone()),
+        },
+        Some(Connection::Raw { .. }) | None => KnownValues::default(),
+    };
+    drop(guard);
+    Ok(command_reference::build(&known))
 }

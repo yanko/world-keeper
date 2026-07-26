@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -48,7 +49,14 @@ export function PushPanel() {
     { state: "verifying", label: t("push.stepper.verify") },
   ];
 
-  const chosen = candidates.find((c) => c.slot === chosenSlot) ?? null;
+  // A single file that passed content validation but doesn't encode a slot in its own
+  // name (see `localworld.rs`) — `chosenSlot` doubles as the manual override here,
+  // rather than a lookup key, since no candidate in the list actually has that slot
+  // until the user types one.
+  const isUnassigned = candidates.length === 1 && !candidates[0].slotInferred;
+  const chosen = isUnassigned
+    ? { ...candidates[0], slot: chosenSlot ?? 0 }
+    : (candidates.find((c) => c.slot === chosenSlot) ?? null);
   // Disabled while *any* operation is running, not just this one — push/pull/restore
   // all stop and restart the same server, so they can never safely overlap.
   const globalBusy = activeOperation !== null;
@@ -120,6 +128,20 @@ export function PushPanel() {
                     ))}
                   </SelectContent>
                 </Select>
+              </>
+            ) : isUnassigned ? (
+              <>
+                <div className="text-sm text-muted-foreground">{t("push.unassignedNote")}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{t("push.slotLabel")}</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="w-24"
+                    value={chosenSlot ?? 0}
+                    onChange={(e) => setChosenSlot(Math.max(0, Math.trunc(Number(e.target.value)) || 0))}
+                  />
+                </div>
               </>
             ) : null}
             {chosen && (

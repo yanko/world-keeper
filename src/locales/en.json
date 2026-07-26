@@ -143,6 +143,8 @@
     "pickSlotPlaceholder": "Pick a slot…",
     "slotOption": "slot {{slot}} — {{size}}, {{modified}}",
     "pugbackupNote": "↳ Core Keeper's own rolling backup for this slot, found alongside the main file — included automatically, both travel together.",
+    "unassignedNote": "This file's name doesn't say which slot it belongs to — name it N.world.gzip (N being the slot number) to have that detected automatically, or just pick the slot below (defaults to 0).",
+    "slotLabel": "Slot",
     "pushThisWorld": "Push this world",
     "resultDone": "Done",
     "resultLive": "world {{slot}} is live",
@@ -319,7 +321,13 @@
     "connectionProfiles": "Connection profiles",
     "auditLog": "Audit log (SQLite)",
     "generatedKeys": "Generated SSH keys",
-    "showInFolder": "Show in folder"
+    "showInFolder": "Show in folder",
+    "copyCommand": "Copy command",
+    "commandCopied": "Command copied",
+    "commandReference": {
+      "title": "Command reference",
+      "desc": "Every remote command this app can run, grouped by what you'd be doing when it runs. Shows placeholders like <worldsPath> until you're connected, then the real values for this server."
+    }
   },
   "disclaimer": {
     "title": "Before you start",

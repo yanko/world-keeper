@@ -248,7 +248,7 @@ async fn do_restore(
     }
 
     emit(app, audit, session_id, RestoreState::Copying, None, None).await;
-    copy_backup_into_place(target, source_backup_path, worlds_path)
+    copy_backup_into_place(target, source_backup_path, worlds_path, slot)
         .await
         .context("copying backup into place")?;
 
@@ -271,20 +271,34 @@ async fn do_restore(
     Ok(game_id)
 }
 
-/// Copies (not moves — the backup dir stays intact) every file in `source_backup_path`
-/// into `worlds_path`.
+/// Copies (not moves — the backup dir stays intact) the world pair — `N.world.gzip` +
+/// its `.pugbackup`, if present — out of `source_backup_path` and into `worlds_path`.
+/// Exact filenames, not "every file in the backup dir": some backups (pre-dating the
+/// exact-pair fix in `push::back_up`, or ones made against a deployment that keeps its
+/// own extra `.old`/`.old2`/`.backup` snapshots alongside the real world files, e.g.
+/// `ich777/steamcmd:corekeeper` on Unraid) can have more than just the pair sitting in
+/// there — restoring should only ever touch the two files that are actually "the
+/// world," cherry-picked out, ignoring whatever else happens to be in that folder.
 async fn copy_backup_into_place(
     target: &dyn ServerTarget,
     source_backup_path: &str,
     worlds_path: &str,
+    slot: u32,
 ) -> anyhow::Result<()> {
-    let entries = target
-        .stat(source_backup_path, "*")
+    let main_name = format!("{slot}.world.gzip");
+    let mut entries = target
+        .stat(source_backup_path, &main_name)
         .await
         .context("listing backup contents")?;
     if entries.is_empty() {
-        bail!("backup directory is empty or missing: {source_backup_path}");
+        bail!("backup has no {main_name} — nothing to restore: {source_backup_path}");
     }
+    entries.extend(
+        target
+            .stat(source_backup_path, &format!("{slot}.world.gzip.pugbackup"))
+            .await
+            .unwrap_or_default(),
+    );
     for entry in &entries {
         let out = target
             .exec(&format!("cp -a {} {}/", shq(&entry.path), shq(worlds_path)))

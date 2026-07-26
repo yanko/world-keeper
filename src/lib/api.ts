@@ -16,6 +16,21 @@ export interface AboutInfo {
 
 export const getAboutInfo = () => invoke<AboutInfo>("get_about_info");
 
+export type TargetKind = "systemd" | "docker" | "process";
+
+export interface CommandRefEntry {
+  label: string;
+  command: string;
+  targetKind: TargetKind | null;
+}
+
+export interface CommandRefGroup {
+  group: string;
+  entries: CommandRefEntry[];
+}
+
+export const getCommandReference = () => invoke<CommandRefGroup[]>("get_command_reference");
+
 export type AuthMethod = "key" | "password";
 
 export type ServiceKind =
@@ -145,6 +160,9 @@ export const getLogTail = (lines: number) => invoke<string>("get_log_tail", { li
 
 export interface LocalWorldCandidate {
   slot: number;
+  /** `false` when `slot` is just a default (0) because the filename didn't encode one
+   * — show an editable slot field instead of treating it as fixed. */
+  slotInferred: boolean;
   mainPath: string;
   mainSize: number;
   mainModified: number | null;

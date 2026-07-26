@@ -37,7 +37,10 @@ export function TerminalPanel() {
     if (!open || !containerRef.current) return;
 
     const term = new Terminal({
-      fontFamily: "var(--font-mono), ui-monospace, monospace",
+      // Consolas — the classic Windows terminal/editor monospace face — with the
+      // app's own mono font and generic fallbacks behind it for non-Windows builds
+      // (Consolas isn't installed there).
+      fontFamily: "Consolas, var(--font-mono), ui-monospace, monospace",
       fontSize: 13,
       cursorBlink: true,
       convertEol: true,

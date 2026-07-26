@@ -1,4 +1,5 @@
 mod audit;
+mod command_reference;
 mod commands;
 mod config;
 mod envelope;
@@ -98,6 +99,7 @@ pub fn run() {
             commands::export_audit,
             commands::list_backups,
             commands::restore_backup,
+            commands::get_command_reference,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

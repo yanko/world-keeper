@@ -326,14 +326,31 @@ fn to_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// Copies the live `N.world.gzip*` set (if any exist yet) to a dated backup dir before
-/// anything is overwritten. Returns `None` only when there's genuinely nothing to back
-/// up (first-ever push to this slot) — never as a way of skipping a failure.
+/// Copies the live world pair (`N.world.gzip` + its `.pugbackup`, if any exist yet) to
+/// a dated backup dir before anything is overwritten. Returns `None` only when there's
+/// genuinely nothing to back up (first-ever push to this slot) — never as a way of
+/// skipping a failure.
+///
+/// Exact filenames, not a `{slot}.world.gzip*` wildcard — that glob used to also sweep
+/// up anything else sharing the prefix. Only ever mattered once a deployment turned up
+/// with more variants than the reference LXC had: an `ich777/steamcmd:corekeeper`
+/// Docker image (seen on Unraid, 2026-07-26) also keeps its own `.old`/`.old2`/`.backup`
+/// snapshots and whatever manual backups a user makes, right alongside the real world
+/// files. Backing (and later restoring) those up as a side effect of "back up the
+/// world" was a real footgun — a restore silently overwriting someone's own manually
+/// named backup because it happened to share the slot prefix. `N.world.gzip` +
+/// `.pugbackup` is the actual atomic pair (CONTEXT.md); nothing else is "the world."
 pub(crate) async fn back_up(target: &dyn ServerTarget, worlds_path: &str, slot: u32) -> anyhow::Result<Option<String>> {
-    let existing = target
-        .stat(worlds_path, &format!("{slot}.world.gzip*"))
+    let mut existing = target
+        .stat(worlds_path, &format!("{slot}.world.gzip"))
         .await
-        .context("listing existing world files")?;
+        .context("listing existing world file")?;
+    existing.extend(
+        target
+            .stat(worlds_path, &format!("{slot}.world.gzip.pugbackup"))
+            .await
+            .context("listing existing pugbackup file")?,
+    );
     if existing.is_empty() {
         return Ok(None);
     }

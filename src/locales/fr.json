@@ -143,6 +143,8 @@
     "pickSlotPlaceholder": "Choisir un emplacement…",
     "slotOption": "emplacement {{slot}} — {{size}}, {{modified}}",
     "pugbackupNote": "↳ Sauvegarde continue propre à Core Keeper pour cet emplacement, trouvée à côté du fichier principal — incluse automatiquement, les deux voyagent ensemble.",
+    "unassignedNote": "Le nom de ce fichier n'indique pas à quel emplacement il appartient — nommez-le N.world.gzip (N étant le numéro d'emplacement) pour une détection automatique, ou choisissez simplement l'emplacement ci-dessous (0 par défaut).",
+    "slotLabel": "Emplacement",
     "pushThisWorld": "Envoyer ce monde",
     "resultDone": "Terminé",
     "resultLive": "le monde {{slot}} est en ligne",
@@ -319,7 +321,13 @@
     "connectionProfiles": "Profils de connexion",
     "auditLog": "Journal d'audit (SQLite)",
     "generatedKeys": "Clés SSH générées",
-    "showInFolder": "Afficher dans le dossier"
+    "showInFolder": "Afficher dans le dossier",
+    "copyCommand": "Copier la commande",
+    "commandCopied": "Commande copiée",
+    "commandReference": {
+      "title": "Référence des commandes",
+      "desc": "Chaque commande distante que l'application peut exécuter, groupée selon le contexte d'utilisation. Affiche des espaces réservés comme <worldsPath> tant que vous n'êtes pas connecté, puis les valeurs réelles pour ce serveur."
+    }
   },
   "disclaimer": {
     "title": "Avant de commencer",
