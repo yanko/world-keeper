@@ -561,15 +561,34 @@ pub async fn export_audit(state: State<'_, AppState>, destination: String) -> Re
 
 // ---- world library / restore ---------------------------------------------------
 
+/// Lists backups straight off the server (see `restore::list_remote_backups` for why —
+/// the local audit db used to be the source, but it only remembers what this app made
+/// and forgets all of it if the audit log is ever cleared, even though the real backup
+/// files are untouched). The db is still consulted, just to attach a `note` when one's
+/// on record for a path that matches — best-effort, never blocks the real listing.
 #[tauri::command]
-pub async fn list_backups(state: State<'_, AppState>) -> Result<Vec<BackupRow>, String> {
-    let host = state
-        .connection
-        .lock()
-        .await
-        .as_ref()
-        .map(|c| c.session().host.clone());
-    state.audit.list_backups(host.as_deref()).await.map_err(err)
+pub async fn list_backups(state: State<'_, AppState>) -> Result<Vec<restore::BackupInfo>, String> {
+    let target = clone_target(&state).await?;
+    let host = target.session().host.clone();
+    let worlds_path = target.worlds_path().to_string();
+
+    let remote = restore::list_remote_backups(&target, &worlds_path).await.map_err(err)?;
+    let db_rows = state.audit.list_backups(Some(&host)).await.unwrap_or_default();
+    let by_path: std::collections::HashMap<String, BackupRow> = db_rows
+        .into_iter()
+        .filter_map(|r| r.lxc_path.clone().map(|p| (p, r)))
+        .collect();
+
+    Ok(remote
+        .into_iter()
+        .map(|mut r| {
+            if let Some(db) = by_path.get(&r.path) {
+                r.note = db.note.clone();
+                r.game_id_before = db.game_id_before.clone();
+            }
+            r
+        })
+        .collect())
 }
 
 /// Restores a previously-created backup (SPEC §11/§15 World Library): stops the

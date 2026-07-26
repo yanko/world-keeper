@@ -52,6 +52,64 @@ pub struct RestoreResult {
     pub backup_path: Option<String>,
 }
 
+/// A backup as it actually exists on the server right now — the World Library's list is
+/// built from this, not from the local audit db. The db was the original source (see
+/// SPEC §11/§15), but it only ever remembers backups *this app* made, and forgets all of
+/// them the moment someone clears the audit log (a real bug reported 2026-07-26: a push
+/// still wrote a real, restorable backup to `.backups/`, but "Clear audit log" silently
+/// made it invisible/unrestorable, even though the file was untouched). The filesystem
+/// is the actual source of truth for "what can I restore"; the db is now only consulted
+/// to enrich a real entry with *why* it was made, when that's known.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupInfo {
+    pub path: String,
+    pub slot: Option<u32>,
+    pub bytes: u64,
+    pub modified: Option<i64>,
+    pub note: Option<String>,
+    pub game_id_before: Option<String>,
+}
+
+/// Lists `<worldsPath>/.backups/*` directly off the server. Each subdirectory is one
+/// dated backup (`<slot>.<timestamp>`, see `push::back_up`); `bytes` sums the size of
+/// its contents (a second `stat` per backup — fine for a manually-triggered refresh,
+/// not something polled).
+pub async fn list_remote_backups(
+    target: &dyn ServerTarget,
+    worlds_path: &str,
+) -> anyhow::Result<Vec<BackupInfo>> {
+    let backups_dir = format!("{worlds_path}/.backups");
+    let entries = target.stat(&backups_dir, "*").await?;
+
+    let mut out = Vec::new();
+    for entry in entries {
+        // `find <dir> -maxdepth 1 -name '*'` (what `stat` shells out to) matches `<dir>`
+        // itself at depth 0 as well as its depth-1 children, and `.backups`'s own name
+        // matches the `*` glob same as any real entry — skip it explicitly rather than
+        // list the backups folder as a "backup" of itself.
+        if entry.path.trim_end_matches('/') == backups_dir {
+            continue;
+        }
+        let name = entry.path.rsplit(['/', '\\']).next().unwrap_or(&entry.path);
+        let slot = name.split('.').next().and_then(|s| s.parse::<u32>().ok());
+        let contents = target.stat(&entry.path, "*").await.unwrap_or_default();
+        let bytes = contents.iter().map(|c| c.size).sum();
+        out.push(BackupInfo {
+            path: entry.path,
+            slot,
+            bytes,
+            modified: entry.modified,
+            note: None,
+            game_id_before: None,
+        });
+    }
+    // Newest first — `<slot>.YYYY-MM-DD_HHMMSS` sorts lexicographically the same as
+    // chronologically.
+    out.sort_by(|a, b| b.path.cmp(&a.path));
+    Ok(out)
+}
+
 pub async fn run_restore(
     app: &AppHandle,
     audit: &AuditDb,

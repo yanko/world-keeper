@@ -206,7 +206,7 @@
     "otherOpBanner": "Une opération ({{operation}}) est en cours — terminez-la ou attendez avant de lancer une restauration.",
     "liveOnServer": "En ligne sur le serveur",
     "noWorlds": "Aucun monde trouvé sur le serveur.",
-    "backups": "Sauvegardes",
+    "backups": "Sauvegardes ({{count}})",
     "noBackupsYet": "— aucune pour l'instant ; votre premier envoi ou restauration en créera une.",
     "restoreButton": "Restaurer",
     "confirmTitle": "Restaurer le monde {{slot}} à partir de cette sauvegarde ?",

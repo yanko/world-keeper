@@ -363,15 +363,16 @@ export const saveAuditZip = (defaultName: string) =>
 
 // ---- world library / restore ---------------------------------------------------
 
-export interface BackupRow {
-  id: number;
-  sessionId: number | null;
-  ts: string;
+/** A backup as it actually exists on the server (see `restore::list_remote_backups` on
+ * the Rust side) — `note`/`gameIdBefore` are filled in only when the local audit db
+ * happens to have a matching record; a real backup with no db record still shows up. */
+export interface BackupInfo {
+  path: string;
   slot: number | null;
-  lxcPath: string | null;
-  bytes: number | null;
-  gameIdBefore: string | null;
+  bytes: number;
+  modified: number | null;
   note: string | null;
+  gameIdBefore: string | null;
 }
 
 export type RestoreState =
@@ -399,7 +400,7 @@ export interface RestoreResult {
   backupPath: string | null;
 }
 
-export const listBackups = () => invoke<BackupRow[]>("list_backups");
+export const listBackups = () => invoke<BackupInfo[]>("list_backups");
 
 export const restoreBackup = (backupPath: string, slot: number) =>
   invoke<RestoreResult>("restore_backup", { backupPath, slot });

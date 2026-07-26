@@ -141,7 +141,7 @@ function App() {
               <TabsContent value="pull" className="flex min-h-0 flex-1 flex-col">
                 <PullPanel />
               </TabsContent>
-              <TabsContent value="terminal" className="flex min-h-0 flex-1 flex-col">
+              <TabsContent value="terminal" keepMounted className="flex min-h-0 flex-1 flex-col">
                 <TerminalPanel />
               </TabsContent>
             </Tabs>

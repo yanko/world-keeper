@@ -20,10 +20,13 @@ export function TerminalPanel() {
   const [starting, setStarting] = useState(false);
   const { activeOperation } = useOperations();
 
-  // Best-effort: close the remote session if the whole panel unmounts. Base UI's Tabs
-  // unmounts inactive panels by default, so switching to another tab tears this down —
-  // that's fine for the terminal itself (reopening is cheap), unlike push/pull/restore
-  // progress, which is why *that* state was moved up into a provider instead.
+  // Best-effort: close the remote session if the whole panel unmounts — i.e. actually
+  // disconnecting, not switching tabs. Base UI's Tabs unmounts inactive panels by
+  // default, which used to tear this down on every tab switch (losing the session,
+  // scrollback and all, just for looking at another tab); App.tsx now passes
+  // `keepMounted` on this tab specifically so it stays alive — hidden, not destroyed —
+  // the whole time you're connected, the same reasoning that put push/pull/restore's
+  // state in a provider instead of a plain component.
   useEffect(() => {
     return () => {
       api.terminalClose().catch(() => {});

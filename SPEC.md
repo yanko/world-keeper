@@ -537,3 +537,25 @@ in `localStorage` and switches in-place with no reload.
 - Caveat worth recording: the French translation is an AI-assisted best-effort pass, not
   reviewed by a native speaker — solid for a v1, but worth a native-speaker pass before
   calling it finished.
+
+---
+
+## 18. World Library: fixed to source from the server, not the audit db (2026-07-26)
+
+Bug found in real use: the World Library's backup list (§11 screen 2, §15) was reading
+`sessions`/`backups` rows from the local SQLite audit db — populated only when *this
+app* made a backup during a push/restore. A real backup on disk that predated the app's
+own bookkeeping, or one made in a session whose audit trail was later wiped via "Clear
+audit log" (§16's destructive op), silently disappeared from the list — even though the
+backup file itself was completely untouched on the server. "Clear audit log" had an
+undocumented side effect of quietly crippling restore capability, which isn't what
+clearing a *log* should ever do to a *different* feature.
+
+Fix: `restore::list_remote_backups` now lists `<worldsPath>/.backups/*` directly off the
+server (one `stat` for the directory, one more per entry to sum its bytes) — this is the
+actual source of truth for "what can I restore," and it can never go stale or get wiped
+by an unrelated action. The local db is kept, but demoted to enrichment only: if a
+listed backup's path happens to match a `backups` row, its `note`/`game_id_before` are
+attached; if not, the backup still shows up, just without that annotation. `BackupRow`
+(the old db-shaped type) was replaced by `BackupInfo` (path/slot/bytes/modified/note/
+gameIdBefore) end to end, frontend included.

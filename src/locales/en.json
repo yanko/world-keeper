@@ -206,7 +206,7 @@
     "otherOpBanner": "A {{operation}} is in progress — finish or wait before starting a restore.",
     "liveOnServer": "Live on server",
     "noWorlds": "No worlds found on the server.",
-    "backups": "Backups",
+    "backups": "Backups ({{count}})",
     "noBackupsYet": "— none yet; your first push or restore creates one.",
     "restoreButton": "Restore",
     "confirmTitle": "Restore world {{slot}} from this backup?",

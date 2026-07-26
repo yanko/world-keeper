@@ -14,22 +14,17 @@ import {
 } from "@/components/ui/dialog";
 import { Stepper, type StepDef } from "@/components/ckm/Stepper";
 import { useOperations } from "@/lib/operations";
-import type { BackupRow, RemoteWorldInfo, RestoreState } from "@/lib/api";
+import type { BackupInfo, RemoteWorldInfo, RestoreState } from "@/lib/api";
 import * as api from "@/lib/api";
 import { formatBytes, formatMtime } from "@/lib/format";
-
-function formatTs(ts: string): string {
-  const d = new Date(ts);
-  return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
-}
 
 export function WorldLibraryPanel() {
   const { t } = useTranslation();
   const { activeOperation, restore, startRestore, resetRestore } = useOperations();
   const [worlds, setWorlds] = useState<RemoteWorldInfo[]>([]);
-  const [backups, setBackups] = useState<BackupRow[]>([]);
+  const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [target, setTarget] = useState<BackupRow | null>(null);
+  const [target, setTarget] = useState<BackupInfo | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const RESTORE_STEPS: StepDef<RestoreState>[] = [
@@ -65,16 +60,16 @@ export function WorldLibraryPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restore.result]);
 
-  function askRestore(backup: BackupRow) {
+  function askRestore(backup: BackupInfo) {
     setTarget(backup);
     setConfirmOpen(true);
   }
 
   function doRestore() {
-    if (!target?.lxcPath || target.slot == null) return;
+    if (!target?.path || target.slot == null) return;
     setConfirmOpen(false);
     resetRestore();
-    startRestore(target.lxcPath, target.slot);
+    startRestore(target.path, target.slot);
   }
 
   return (
@@ -118,31 +113,30 @@ export function WorldLibraryPanel() {
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="mb-1 text-sm text-muted-foreground">
-            {t("worldLibrary.backups")} {backups.length === 0 && t("worldLibrary.noBackupsYet")}
+            {t("worldLibrary.backups", { count: backups.length })}{" "}
+            {backups.length === 0 && t("worldLibrary.noBackupsYet")}
           </div>
           {backups.length > 0 && (
             <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
               {backups.map((b) => (
                 <div
-                  key={b.id}
+                  key={b.path}
                   className="flex items-center justify-between gap-2 border-b p-2 text-sm last:border-b-0"
                 >
                   <div className="min-w-0">
                     <div>
                       <span className="font-mono">slot {b.slot ?? "?"}</span>{" "}
-                      <span className="text-muted-foreground">{formatTs(b.ts)}</span>
+                      <span className="text-muted-foreground">{formatMtime(b.modified)}</span>
                     </div>
-                    <div className="truncate font-mono text-xs text-muted-foreground">{b.lxcPath}</div>
+                    <div className="truncate font-mono text-xs text-muted-foreground">{b.path}</div>
                     {b.note && <div className="text-xs text-muted-foreground">{b.note}</div>}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {b.bytes != null && (
-                      <span className="text-xs text-muted-foreground">{formatBytes(b.bytes)}</span>
-                    )}
+                    <span className="text-xs text-muted-foreground">{formatBytes(b.bytes)}</span>
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={globalBusy || !b.lxcPath || b.slot == null}
+                      disabled={globalBusy || b.slot == null}
                       onClick={() => askRestore(b)}
                     >
                       {t("worldLibrary.restoreButton")}
@@ -187,7 +181,7 @@ export function WorldLibraryPanel() {
             <DialogTitle>{t("worldLibrary.confirmTitle", { slot: target?.slot })}</DialogTitle>
             <DialogDescription>
               {t("worldLibrary.confirmDesc")}
-              <div className="mt-2 font-mono text-xs">{target?.lxcPath}</div>
+              <div className="mt-2 font-mono text-xs">{target?.path}</div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
