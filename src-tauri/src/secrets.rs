@@ -4,7 +4,7 @@
 
 use keyring::Entry;
 
-const SERVICE: &str = "com.yanko.ck-world-manager";
+const SERVICE: &str = "com.civortech.worldkeeper";
 
 fn entry(profile_id: &str) -> anyhow::Result<Entry> {
     Ok(Entry::new(SERVICE, profile_id)?)

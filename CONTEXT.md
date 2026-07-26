@@ -1,4 +1,4 @@
-# CONTEXT.md — Core Keeper World Manager
+# CONTEXT.md — World Keeper
 
 Handoff notes for building this project in Claude Code. Read alongside `SPEC.md`.
 This file captures *why* the decisions were made and the real-world facts discovered,

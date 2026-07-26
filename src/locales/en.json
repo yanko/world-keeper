@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Core Keeper World Manager",
+    "title": "World Keeper",
     "loading": "Loading…",
     "tabs": {
       "server": "Server",
@@ -313,7 +313,7 @@
   },
   "about": {
     "buttonTitle": "About",
-    "title": "Core Keeper World Manager",
+    "title": "World Keeper",
     "versionDesc": "Version {{version}} — MIT licensed. A homelab tool for managing a Core Keeper dedicated server's worlds over SSH; see the project's GitHub repo for source and docs.",
     "loading": "Loading…",
     "connectionProfiles": "Connection profiles",

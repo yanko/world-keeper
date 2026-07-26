@@ -1,4 +1,4 @@
-# Core Keeper World Manager — SPEC.md
+# World Keeper — SPEC.md
 
 A cross-platform desktop app (Windows-first) to manage a Core Keeper dedicated server's
 worlds over SSH. Push new worlds in, pull the current world out, both wrapped in a safe

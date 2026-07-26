@@ -16,10 +16,10 @@ VS Build Tools).
 ## 1. Scaffold a Tauri v2 + React + TS app
 
 ```powershell
-# creates ./ck-world-manager with a Tauri v2 + React/TypeScript template
-pnpm create tauri-app@latest ck-world-manager --template react-ts --manager pnpm
+# creates ./world-keeper with a Tauri v2 + React/TypeScript template
+pnpm create tauri-app@latest world-keeper --template react-ts --manager pnpm
 
-cd ck-world-manager
+cd world-keeper
 pnpm install
 ```
 

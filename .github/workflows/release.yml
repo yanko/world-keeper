@@ -58,7 +58,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Core Keeper World Manager ${{ github.ref_name }}"
+          releaseName: "World Keeper ${{ github.ref_name }}"
           releaseBody: |
             See the assets below for the Windows installer (.exe/.msi) and macOS disk
             image (.dmg). Neither is code-signed — see the README for what that means

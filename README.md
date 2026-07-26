@@ -1,4 +1,4 @@
-# Core Keeper World Manager
+# World Keeper
 
 A Windows-first desktop app for managing a [Core Keeper](https://www.corekeepergame.com/)
 dedicated server's worlds over SSH — push a world in, pull the current world out, both
@@ -107,8 +107,8 @@ tag, so a mismatch there just looks confusing in the release assets.
 ## Data locations
 
 The app stores its own data outside the repo, in the OS app-data/app-config
-directories for `com.yanko.ck-world-manager` (on Windows, under
-`%APPDATA%\com.yanko.ck-world-manager\`):
+directories for `com.civortech.worldkeeper` (on Windows, under
+`%APPDATA%\com.civortech.worldkeeper\`):
 
 - `config.json` — connection profiles (never contains passwords or keys)
 - `ckmanager.db` — the SQLite audit log

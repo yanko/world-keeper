@@ -9,8 +9,8 @@
 //! Optional overrides: CK_SSH_HOST (default 192.168.1.50), CK_SSH_USER (default root),
 //! CK_SSH_PORT (default 22).
 
-use ck_world_manager_lib::discovery;
-use ck_world_manager_lib::ssh::SshSession;
+use world_keeper_lib::discovery;
+use world_keeper_lib::ssh::SshSession;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

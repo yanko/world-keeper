@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    ck_world_manager_lib::run()
+    world_keeper_lib::run()
 }

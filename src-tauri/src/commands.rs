@@ -237,7 +237,7 @@ pub async fn setup_key_auth(app: AppHandle, state: State<'_, AppState>) -> Resul
         .cloned()
         .ok_or_else(|| format!("no such profile: {profile_id}"))?;
 
-    let generated = keygen::generate_for_profile(&app, &profile_id, "ck-world-manager")
+    let generated = keygen::generate_for_profile(&app, &profile_id, "world-keeper")
         .await
         .map_err(err)?;
 

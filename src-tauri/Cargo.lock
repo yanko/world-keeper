@@ -820,32 +820,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ck-world-manager"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "csv",
- "keyring",
- "russh",
- "russh-sftp",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "sqlx",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-sql",
- "tauri-plugin-store",
- "tokio",
- "zip",
-]
-
-[[package]]
 name = "clipboard-win"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7581,6 +7555,32 @@ dependencies = [
  "ff",
  "group",
  "hybrid-array",
+]
+
+[[package]]
+name = "world-keeper"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "csv",
+ "keyring",
+ "russh",
+ "russh-sftp",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "sqlx",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-sql",
+ "tauri-plugin-store",
+ "tokio",
+ "zip",
 ]
 
 [[package]]
