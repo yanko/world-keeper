@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import {
 const STORAGE_KEY = "ckm.disclaimer-acknowledged.v1";
 
 export function DisclaimerDialog() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -32,20 +34,16 @@ export function DisclaimerDialog() {
     <Dialog open={open} onOpenChange={(v) => !v && acknowledge()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Before you start</DialogTitle>
+          <DialogTitle>{t("disclaimer.title")}</DialogTitle>
           <DialogDescription className="space-y-2 text-foreground">
             <p>
-              This tool stops your Core Keeper server and overwrites world files on a
-              remote host you control. It backs up before every destructive step and
-              rolls back on failure — but it's a homelab tool, not a certified backup
-              product, and it comes with{" "}
-              <strong>no guarantee against data loss or corruption</strong>.
+              <Trans i18nKey="disclaimer.body1" components={{ 1: <strong /> }} />
             </p>
-            <p>Keep your own independent backups of anything you can't afford to lose.</p>
+            <p>{t("disclaimer.body2")}</p>
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button onClick={acknowledge}>I understand</Button>
+          <Button onClick={acknowledge}>{t("disclaimer.understand")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

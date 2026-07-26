@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { InfoIcon, FolderOpenIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,7 @@ async function reveal(path: string) {
 }
 
 function PathRow({ label, path }: { label: string; path: string }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2 rounded-md border p-2 text-sm">
       <div className="min-w-0 flex-1">
@@ -33,7 +35,7 @@ function PathRow({ label, path }: { label: string; path: string }) {
         variant="outline"
         size="icon-sm"
         className="shrink-0"
-        title="Show in folder"
+        title={t("about.showInFolder")}
         onClick={() => reveal(path)}
       >
         <FolderOpenIcon />
@@ -43,6 +45,7 @@ function PathRow({ label, path }: { label: string; path: string }) {
 }
 
 export function AboutDialog() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState<AboutInfo | null>(null);
 
@@ -58,24 +61,22 @@ export function AboutDialog() {
 
   return (
     <>
-      <Button variant="outline" size="icon-sm" title="About" onClick={show}>
+      <Button variant="outline" size="icon-sm" title={t("about.buttonTitle")} onClick={show}>
         <InfoIcon />
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Core Keeper World Manager</DialogTitle>
+            <DialogTitle>{t("about.title")}</DialogTitle>
             <DialogDescription>
-              {info ? `Version ${info.version}` : "Loading…"} — MIT licensed. A
-              homelab tool for managing a Core Keeper dedicated server's worlds over
-              SSH; see the project's GitHub repo for source and docs.
+              {info ? t("about.versionDesc", { version: info.version }) : t("about.loading")}
             </DialogDescription>
           </DialogHeader>
           {info && (
             <div className="grid gap-2">
-              <PathRow label="Connection profiles" path={info.configPath} />
-              <PathRow label="Audit log (SQLite)" path={info.dbPath} />
-              <PathRow label="Generated SSH keys" path={info.keysDir} />
+              <PathRow label={t("about.connectionProfiles")} path={info.configPath} />
+              <PathRow label={t("about.auditLog")} path={info.dbPath} />
+              <PathRow label={t("about.generatedKeys")} path={info.keysDir} />
             </div>
           )}
         </DialogContent>

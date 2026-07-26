@@ -50,6 +50,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      i18next:
+        specifier: ^26.3.6
+        version: 26.3.6(typescript@5.8.3)
       lucide-react:
         specifier: ^1.26.0
         version: 1.26.0(react@19.2.8)
@@ -62,6 +65,9 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.8(react@19.2.8)
+      react-i18next:
+        specifier: ^17.0.11
+        version: 17.0.11(i18next@26.3.6(typescript@5.8.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.8.3)
       shadcn:
         specifier: ^4.14.1
         version: 4.14.1(typescript@5.8.3)
@@ -1323,6 +1329,9 @@ packages:
     resolution: {integrity: sha512-zJIHFrl6bq3RDd2YusFNCDlM8qUprxKswyi/OPzPyzKDdyBXDqWx8bZlZ7R+saTdSTatUmb3O7K4SspGPaEOQg==}
     engines: {node: '>=16.9.0'}
 
+  html-parse-stringify@4.0.1:
+    resolution: {integrity: sha512-0zHsZJrK7S3K2aucXWL6ycoYJ/iNtIcFHC/nYQgFklPtrv5LpJctIiSCroWZWeuoXvuyFdzp6KzjJQ+OT5MfFw==}
+
   http-errors@2.0.1:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
     engines: {node: '>= 0.8'}
@@ -1334,6 +1343,14 @@ packages:
   human-signals@8.0.1:
     resolution: {integrity: sha512-eKCa6bwnJhvxj14kZk5NCPc6Hb6BdsU9DZcOnmQKSnO1VKrfV0zCvtttPZUsBvjmNDn8rpcJfpwSYnHBjc95MQ==}
     engines: {node: '>=18.18.0'}
+
+  i18next@26.3.6:
+    resolution: {integrity: sha512-Bu5Z2nAXgfVyM8xvW3jk9EKRIuX37PudsrBViThNFx7CR7aaYTpP01cxNB/E4c4UUzTDiAZRstEhsRfPOL/8xA==}
+    peerDependencies:
+      typescript: ^5 || ^6 || ^7
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   iconv-lite@0.7.3:
     resolution: {integrity: sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==}
@@ -1816,6 +1833,22 @@ packages:
     resolution: {integrity: sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==}
     peerDependencies:
       react: ^19.2.8
+
+  react-i18next@17.0.11:
+    resolution: {integrity: sha512-cDtkXgxjuFTWUH6V+aQn1Ve5vDiUztCNPWW5GtSHDccsgRXO1nE6QFWCEmc1KAutrb3OUv87wFShJL5RhUwPXg==}
+    peerDependencies:
+      i18next: '>= 26.2.0'
+      react: '>= 16.8.0'
+      react-dom: '*'
+      react-native: '*'
+      typescript: ^5 || ^6 || ^7
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+      typescript:
+        optional: true
 
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
@@ -3274,6 +3307,8 @@ snapshots:
 
   hono@4.12.31: {}
 
+  html-parse-stringify@4.0.1: {}
+
   http-errors@2.0.1:
     dependencies:
       depd: 2.0.0
@@ -3285,6 +3320,10 @@ snapshots:
   human-signals@2.1.0: {}
 
   human-signals@8.0.1: {}
+
+  i18next@26.3.6(typescript@5.8.3):
+    optionalDependencies:
+      typescript: 5.8.3
 
   iconv-lite@0.7.3:
     dependencies:
@@ -3658,6 +3697,17 @@ snapshots:
     dependencies:
       react: 19.2.8
       scheduler: 0.27.0
+
+  react-i18next@17.0.11(i18next@26.3.6(typescript@5.8.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.8.3):
+    dependencies:
+      '@babel/runtime': 7.29.7
+      html-parse-stringify: 4.0.1
+      i18next: 26.3.6(typescript@5.8.3)
+      react: 19.2.8
+      use-sync-external-store: 1.6.0(react@19.2.8)
+    optionalDependencies:
+      react-dom: 19.2.8(react@19.2.8)
+      typescript: 5.8.3
 
   react-refresh@0.17.0: {}
 

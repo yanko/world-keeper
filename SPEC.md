@@ -407,6 +407,8 @@ green" AI-default looks.
 10. Post-v1 refinements (§15): profile edit/delete UI, persistent current-world
     display, locked connection dropdown while connected, server clock + copyable game id.
 11. Terminal + Audit tabs (§16).
+12. Cross-tab operation-lock robustness, About dialog, MIT release prep, GitHub Actions
+    release workflow, localization (§17).
 
 ---
 
@@ -490,3 +492,48 @@ phase but has no read path yet — `audit.rs` is write-only so far.
   search over `state` and `detail_json`. Paginated.
 - UI: a results table (timestamp, kind, state, ok/fail, detail) with filter controls
   above it and a search box; click a row to expand full `detail_json`.
+
+---
+
+## 17. Localization (requested 2026-07-25)
+
+A cycle-on-click icon toggle (globe/languages icon, next to About/Theme in
+`ConnectionBar`'s header) — mirrors `ThemeToggle`'s system → light → dark pattern rather
+than a dropdown. Cycle: **System → English → Français → (any further installed
+languages)**. "System" matches the OS/browser locale (`navigator.languages`) against
+what's installed, falling back to English; the explicit choice (or "system") persists
+in `localStorage` and switches in-place with no reload.
+
+- **Stack**: `react-i18next` — the standard choice for this, not a bespoke solution.
+  Resources are bundled at build time, but *discovered* rather than hand-listed:
+  `src/lib/i18n.ts` uses `import.meta.glob("../locales/*.json", { eager: true })` to
+  pick up every file in `src/locales/` automatically. Adding a language later (e.g.
+  Spanish) is just "drop `es.json` in that folder, with its own `meta.nativeName` key,
+  and rebuild" — no array or component to touch, it just joins the cycle.
+  `src/i18next.d.ts` augments react-i18next's types against `en.json`'s literal shape,
+  so a typo'd or missing translation key is a compile error, not a silent runtime
+  fallback (this only validates key *names*, not that every language has a translation
+  for each one — a missing key in a non-English file just falls back to English text at
+  runtime).
+- Each locale file self-declares its own name under `meta.nativeName` (e.g. `fr.json`:
+  `"Français"`), read via `i18n.getResource(lang, ...)` rather than `t()` — so the
+  toggle always shows a language's name *in itself*, never translated into whatever's
+  currently active, and a new language's label ships inside its own file.
+- **Scope — what gets translated and what doesn't**:
+  - Translated: all static UI chrome — labels, buttons, dialog titles/descriptions,
+    toasts, table headers, placeholders — across every panel.
+  - Left in English, deliberately: raw backend error strings (`anyhow` chains, SSH/
+    `docker`/`ss` command output surfaced in error messages) and all audit log content.
+    These are diagnostic/forensic text; translating dynamic error text isn't reliably
+    achievable, and an audit trail that flips language depending on whatever locale was
+    active when a row was written would be harder to read back, not easier.
+  - Domain terms (SSH, Docker, systemd, world, slot) are left untranslated in French
+    too, matching how the rest of the industry handles this class of technical term —
+    translating them would make the app less recognizable, not more.
+- **Structure**: one flat JSON file per language, keys nested by component
+  (`push.stepper.upload`, `connectionBar.newProfileDialog.titleNew`, etc.) rather than
+  i18next's namespace-per-file convention — the app is small enough that splitting
+  namespaces now would be premature; revisit if a file gets unwieldy.
+- Caveat worth recording: the French translation is an AI-assisted best-effort pass, not
+  reviewed by a native speaker — solid for a v1, but worth a native-speaker pass before
+  calling it finished.

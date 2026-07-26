@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { useOperations } from "@/lib/operations";
 /// `exec()` call. Manual start/stop — this is a genuine, unsandboxed root shell, not
 /// something to spin up automatically just because the tab exists.
 export function TerminalPanel() {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -51,7 +53,7 @@ export function TerminalPanel() {
     const unlistenOutput = api.onTerminalOutput((chunk) => term.write(chunk));
     const unlistenClosed = api.onTerminalClosed(() => {
       if (cancelled) return;
-      term.write("\r\n\x1b[31m[session closed]\x1b[0m\r\n");
+      term.write(`\r\n\x1b[31m${t("terminal.sessionClosed")}\x1b[0m\r\n`);
       setOpen(false);
     });
 
@@ -70,6 +72,7 @@ export function TerminalPanel() {
       unlistenClosed.then((u) => u());
       term.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   async function start() {
@@ -98,34 +101,30 @@ export function TerminalPanel() {
     <Card className="flex h-full min-h-0 w-full flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Terminal</CardTitle>
-          <CardDescription>
-            A real shell over SSH — same trust level as <code>ssh root@host</code>, not
-            sandboxed.
-          </CardDescription>
+          <CardTitle>{t("terminal.title")}</CardTitle>
+          <CardDescription>{t("terminal.desc")}</CardDescription>
         </div>
         {open ? (
           <Button variant="destructive" size="sm" onClick={stop}>
-            Close session
+            {t("terminal.closeSession")}
           </Button>
         ) : (
           <Button size="sm" onClick={start} disabled={starting}>
-            {starting ? "Starting…" : "Start terminal session"}
+            {starting ? t("terminal.starting") : t("terminal.startSession")}
           </Button>
         )}
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-2">
         {activeOperation && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-            A {activeOperation} is in progress — commands run here can race its own
-            stop/start sequence. Best to wait it out.
+            {t("terminal.otherOpBanner", { operation: t(`operations.${activeOperation}`) })}
           </div>
         )}
         {open ? (
           <div ref={containerRef} className="min-h-64 w-full flex-1 overflow-hidden rounded-md bg-black p-1" />
         ) : (
           <div className="flex min-h-64 flex-1 items-center justify-center rounded-md border text-sm text-muted-foreground">
-            No active session. Click "Start terminal session" to open a real shell.
+            {t("terminal.noActiveSession")}
           </div>
         )}
       </CardContent>

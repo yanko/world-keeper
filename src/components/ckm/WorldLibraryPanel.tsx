@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,29 +18,30 @@ import type { BackupRow, RemoteWorldInfo, RestoreState } from "@/lib/api";
 import * as api from "@/lib/api";
 import { formatBytes, formatMtime } from "@/lib/format";
 
-const RESTORE_STEPS: StepDef<RestoreState>[] = [
-  { state: "checkingService", label: "Check service" },
-  { state: "stopping", label: "Stop" },
-  { state: "backingUp", label: "Back up" },
-  { state: "copying", label: "Copy in" },
-  { state: "fixingPerms", label: "Fix perms" },
-  { state: "starting", label: "Start" },
-  { state: "capturingGameId", label: "Capture game id" },
-  { state: "verifying", label: "Verify" },
-];
-
 function formatTs(ts: string): string {
   const d = new Date(ts);
   return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
 }
 
 export function WorldLibraryPanel() {
+  const { t } = useTranslation();
   const { activeOperation, restore, startRestore, resetRestore } = useOperations();
   const [worlds, setWorlds] = useState<RemoteWorldInfo[]>([]);
   const [backups, setBackups] = useState<BackupRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [target, setTarget] = useState<BackupRow | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const RESTORE_STEPS: StepDef<RestoreState>[] = [
+    { state: "checkingService", label: t("worldLibrary.stepper.checkService") },
+    { state: "stopping", label: t("worldLibrary.stepper.stop") },
+    { state: "backingUp", label: t("worldLibrary.stepper.backUp") },
+    { state: "copying", label: t("worldLibrary.stepper.copyIn") },
+    { state: "fixingPerms", label: t("worldLibrary.stepper.fixPerms") },
+    { state: "starting", label: t("worldLibrary.stepper.start") },
+    { state: "capturingGameId", label: t("worldLibrary.stepper.captureGameId") },
+    { state: "verifying", label: t("worldLibrary.stepper.verify") },
+  ];
 
   const globalBusy = activeOperation !== null;
 
@@ -79,26 +81,22 @@ export function WorldLibraryPanel() {
     <Card className="flex h-full min-h-0 w-full flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>World library</CardTitle>
-          <CardDescription>
-            What's live on the server, and every dated backup this app has made.
-            Restoring is the same safe envelope as a push — no guarantee against data
-            loss, keep your own backups.
-          </CardDescription>
+          <CardTitle>{t("worldLibrary.title")}</CardTitle>
+          <CardDescription>{t("worldLibrary.desc")}</CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
-          {loading ? "Loading…" : "Refresh"}
+          {loading ? t("worldLibrary.loading") : t("worldLibrary.refresh")}
         </Button>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         {activeOperation && activeOperation !== "restore" && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-            A {activeOperation} is in progress — finish or wait before starting a restore.
+            {t("worldLibrary.otherOpBanner", { operation: t(`operations.${activeOperation}`) })}
           </div>
         )}
 
         <div>
-          <div className="mb-1 text-sm text-muted-foreground">Live on server</div>
+          <div className="mb-1 text-sm text-muted-foreground">{t("worldLibrary.liveOnServer")}</div>
           {worlds.length > 0 ? (
             <div className="grid gap-1.5">
               {worlds.map((w) => (
@@ -114,13 +112,13 @@ export function WorldLibraryPanel() {
               ))}
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No worlds found on the server.</div>
+            <div className="text-sm text-muted-foreground">{t("worldLibrary.noWorlds")}</div>
           )}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="mb-1 text-sm text-muted-foreground">
-            Backups {backups.length === 0 && "— none yet; your first push or restore creates one."}
+            {t("worldLibrary.backups")} {backups.length === 0 && t("worldLibrary.noBackupsYet")}
           </div>
           {backups.length > 0 && (
             <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
@@ -147,7 +145,7 @@ export function WorldLibraryPanel() {
                       disabled={globalBusy || !b.lxcPath || b.slot == null}
                       onClick={() => askRestore(b)}
                     >
-                      Restore
+                      {t("worldLibrary.restoreButton")}
                     </Button>
                   </div>
                 </div>
@@ -162,21 +160,18 @@ export function WorldLibraryPanel() {
             log={restore.log}
             doneState="done"
             failedStates={["failed", "rollingBack"]}
-            failedBanner="Rolled back — a safety backup was restored and the server restarted automatically."
+            failedBanner={t("worldLibrary.stepper.failedBanner")}
           />
         )}
 
         {!restore.running && restore.result && (
           <div className="rounded-md border p-2 text-sm text-muted-foreground">
-            Restored world {restore.result.slot}
-            {restore.result.gameId && (
-              <>
-                {" "}
-                · game id <span className="font-mono">{restore.result.gameId}</span>
-              </>
-            )}
+            {t("worldLibrary.restoredResult", { slot: restore.result.slot })}
+            {restore.result.gameId && <> {t("worldLibrary.gameId", { id: restore.result.gameId })}</>}
             {restore.result.backupPath && (
-              <div className="font-mono text-xs">safety backup: {restore.result.backupPath}</div>
+              <div className="font-mono text-xs">
+                {t("worldLibrary.safetyBackup", { path: restore.result.backupPath })}
+              </div>
             )}
           </div>
         )}
@@ -189,19 +184,18 @@ export function WorldLibraryPanel() {
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Restore world {target?.slot} from this backup?</DialogTitle>
+            <DialogTitle>{t("worldLibrary.confirmTitle", { slot: target?.slot })}</DialogTitle>
             <DialogDescription>
-              Stops the live server, backs up whatever's currently live (so this itself
-              is undoable), copies this backup into place, restarts, and verifies.
+              {t("worldLibrary.confirmDesc")}
               <div className="mt-2 font-mono text-xs">{target?.lxcPath}</div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              Cancel
+              {t("worldLibrary.cancel")}
             </Button>
             <Button variant="destructive" disabled={globalBusy} onClick={doRestore}>
-              Stop server &amp; restore
+              {t("worldLibrary.confirmButton")}
             </Button>
           </DialogFooter>
         </DialogContent>

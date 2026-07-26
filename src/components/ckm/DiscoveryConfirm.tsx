@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +39,7 @@ export function DiscoveryConfirm({
   onRescan,
   onConfirmed,
 }: DiscoveryConfirmProps) {
+  const { t } = useTranslation();
   const [candidateIdx, setCandidateIdx] = useState<string | undefined>(
     result.serviceKindCandidates.length > 0 ? "0" : undefined
   );
@@ -67,11 +69,11 @@ export function DiscoveryConfirm({
 
   async function confirm() {
     if (!resolvedKind) {
-      toast.error("Pick (or enter) a service before confirming.");
+      toast.error(t("discoveryConfirm.toasts.pickServiceError"));
       return;
     }
     if (!resolvedWorldsPath) {
-      toast.error("Pick (or enter) a worlds path before confirming.");
+      toast.error(t("discoveryConfirm.toasts.pickWorldsPathError"));
       return;
     }
     const discovered: Discovered = {
@@ -85,7 +87,7 @@ export function DiscoveryConfirm({
     setConfirming(true);
     try {
       await api.confirmDiscovery(profileId, discovered);
-      toast.success("Discovery confirmed.");
+      toast.success(t("discoveryConfirm.toasts.confirmed"));
       onConfirmed();
     } catch (e) {
       toast.error(String(e));
@@ -97,15 +99,15 @@ export function DiscoveryConfirm({
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Confirm what was found</CardTitle>
+        <CardTitle>{t("discoveryConfirm.title")}</CardTitle>
         <CardDescription>
-          Nothing is saved until you confirm — SPEC §8. Detected OS:{" "}
-          <span className="font-mono">{result.os ?? "unknown"}</span>
+          {t("discoveryConfirm.descPrefix")}{" "}
+          <span className="font-mono">{result.os ?? t("discoveryConfirm.unknownOs")}</span>
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid gap-1.5">
-          <div className="text-sm font-medium">Service</div>
+          <div className="text-sm font-medium">{t("discoveryConfirm.service")}</div>
           {result.serviceKind ? (
             <div className="rounded-md border p-2 font-mono text-sm">
               {serviceKindLabel(result.serviceKind)}
@@ -120,7 +122,7 @@ export function DiscoveryConfirm({
                 onValueChange={(v) => setCandidateIdx(v ?? undefined)}
               >
                 <SelectTrigger className="max-w-full min-w-40">
-                  <SelectValue placeholder="Pick the real Core Keeper service…" />
+                  <SelectValue placeholder={t("discoveryConfirm.pickServicePlaceholder")} />
                 </SelectTrigger>
                 <SelectContent className="w-auto min-w-72" alignItemWithTrigger={false}>
                   {result.serviceKindCandidates.map((c, i) => (
@@ -138,7 +140,7 @@ export function DiscoveryConfirm({
             </>
           ) : (
             <Input
-              placeholder="No service auto-detected — enter a systemd unit name manually"
+              placeholder={t("discoveryConfirm.manualUnitPlaceholder")}
               value={manualUnit}
               onChange={(e) => setManualUnit(e.target.value)}
             />
@@ -146,13 +148,13 @@ export function DiscoveryConfirm({
         </div>
 
         <div className="grid gap-1.5">
-          <div className="text-sm font-medium">Worlds path</div>
+          <div className="text-sm font-medium">{t("discoveryConfirm.worldsPath")}</div>
           {result.worldsPath ? (
             <div className="rounded-md border p-2 font-mono text-sm">{result.worldsPath}</div>
           ) : result.worldsPathCandidates.length > 0 ? (
             <Select value={worldsPath} onValueChange={(v) => setWorldsPath(v ?? undefined)}>
               <SelectTrigger className="max-w-full min-w-40">
-                <SelectValue placeholder="Pick the worlds directory…" />
+                <SelectValue placeholder={t("discoveryConfirm.pickWorldsPathPlaceholder")} />
               </SelectTrigger>
               <SelectContent className="w-auto min-w-72" alignItemWithTrigger={false}>
                 {result.worldsPathCandidates.map((p) => (
@@ -164,7 +166,7 @@ export function DiscoveryConfirm({
             </Select>
           ) : (
             <Input
-              placeholder="No worlds dir found — enter the path manually"
+              placeholder={t("discoveryConfirm.manualWorldsPathPlaceholder")}
               value={manualWorldsPath}
               onChange={(e) => setManualWorldsPath(e.target.value)}
             />
@@ -173,10 +175,10 @@ export function DiscoveryConfirm({
 
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={onRescan}>
-            Re-scan
+            {t("discoveryConfirm.rescan")}
           </Button>
           <Button size="sm" onClick={confirm} disabled={confirming}>
-            {confirming ? "Confirming…" : "Confirm"}
+            {confirming ? t("discoveryConfirm.confirming") : t("discoveryConfirm.confirm")}
           </Button>
         </div>
       </CardContent>

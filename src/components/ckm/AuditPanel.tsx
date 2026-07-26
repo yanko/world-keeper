@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ function sessionLabel(s: SessionRow): string {
 }
 
 export function AuditPanel() {
+  const { t } = useTranslation();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [confirm1Open, setConfirm1Open] = useState(false);
   const [confirm2Open, setConfirm2Open] = useState(false);
@@ -58,7 +60,7 @@ export function AuditPanel() {
     try {
       await api.clearAuditLog();
       setRefreshKey((k) => k + 1);
-      toast.success("Audit log cleared.");
+      toast.success(t("audit.toasts.cleared"));
     } catch (e) {
       toast.error(String(e));
     } finally {
@@ -73,7 +75,7 @@ export function AuditPanel() {
       const destination = await api.saveAuditZip(defaultName);
       if (!destination) return;
       await api.exportAudit(destination);
-      toast.success(`Exported to ${destination}`);
+      toast.success(t("audit.toasts.exported", { path: destination }));
     } catch (e) {
       toast.error(String(e));
     } finally {
@@ -84,10 +86,10 @@ export function AuditPanel() {
   return (
     <Card className="flex h-full min-h-0 w-full flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Audit log</CardTitle>
+        <CardTitle>{t("audit.title")}</CardTitle>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={doExport} disabled={exporting}>
-            {exporting ? "Exporting…" : "Export (CSV + db)"}
+            {exporting ? t("audit.exporting") : t("audit.export")}
           </Button>
           <Button
             variant="destructive"
@@ -95,19 +97,19 @@ export function AuditPanel() {
             onClick={() => setConfirm1Open(true)}
             disabled={clearing}
           >
-            {clearing ? "Clearing…" : "Clear log"}
+            {clearing ? t("audit.clearing") : t("audit.clearLog")}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setRefreshKey((k) => k + 1)}>
-            Refresh
+            {t("audit.refresh")}
           </Button>
         </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
         <Tabs defaultValue="events" className="flex min-h-0 flex-1 flex-col gap-3">
           <TabsList>
-            <TabsTrigger value="events">Events</TabsTrigger>
-            <TabsTrigger value="commands">SSH commands</TabsTrigger>
-            <TabsTrigger value="errors">Errors</TabsTrigger>
+            <TabsTrigger value="events">{t("audit.tabs.events")}</TabsTrigger>
+            <TabsTrigger value="commands">{t("audit.tabs.commands")}</TabsTrigger>
+            <TabsTrigger value="errors">{t("audit.tabs.errors")}</TabsTrigger>
           </TabsList>
           <TabsContent value="events" className="flex min-h-0 flex-1 flex-col">
             <EventsView sessions={sessions} refreshKey={refreshKey} />
@@ -125,16 +127,12 @@ export function AuditPanel() {
       <Dialog open={confirm1Open} onOpenChange={setConfirm1Open}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Clear the entire audit log?</DialogTitle>
-            <DialogDescription>
-              Deletes every session, event, SSH command, error, file operation, and
-              backup record — all of it, not just what's currently filtered. This
-              cannot be undone.
-            </DialogDescription>
+            <DialogTitle>{t("audit.confirm1.title")}</DialogTitle>
+            <DialogDescription>{t("audit.confirm1.desc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirm1Open(false)}>
-              Cancel
+              {t("audit.confirm1.cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -143,7 +141,7 @@ export function AuditPanel() {
                 setConfirm2Open(true);
               }}
             >
-              Yes, clear it
+              {t("audit.confirm1.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -153,21 +151,15 @@ export function AuditPanel() {
       <Dialog open={confirm2Open} onOpenChange={setConfirm2Open}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>No, like — are you REALLY sure?</DialogTitle>
-            <DialogDescription>
-              This is the digital equivalent of shredding the black box right before
-              the NTSB shows up. Every "why did the server die at 3am" mystery you
-              could've solved — gone. Every rollback you were quietly proud of — never
-              happened. The audit log doesn't get better with age, it just dies, and
-              you're the one holding the knife. Last chance to back away slowly.
-            </DialogDescription>
+            <DialogTitle>{t("audit.confirm2.title")}</DialogTitle>
+            <DialogDescription>{t("audit.confirm2.desc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirm2Open(false)}>
-              No, I panicked
+              {t("audit.confirm2.cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmClear}>
-              Yes. Do it. Let it go quietly.
+              {t("audit.confirm2.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -185,13 +177,14 @@ function SessionSelect({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Select value={value} onValueChange={(v) => onChange(v ?? ALL)}>
       <SelectTrigger className="max-w-full min-w-32">
-        <SelectValue placeholder="Session" />
+        <SelectValue placeholder={t("audit.filters.sessionPlaceholder")} />
       </SelectTrigger>
       <SelectContent className="w-auto min-w-72" alignItemWithTrigger={false}>
-        <SelectItem value={ALL}>All sessions</SelectItem>
+        <SelectItem value={ALL}>{t("audit.filters.allSessions")}</SelectItem>
         {sessions.map((s) => (
           <SelectItem key={s.id} value={String(s.id)}>
             {sessionLabel(s)}
@@ -203,6 +196,7 @@ function SessionSelect({
 }
 
 function EventsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshKey: number }) {
+  const { t } = useTranslation();
   const [kinds, setKinds] = useState<string[]>([]);
   const [kind, setKind] = useState(ALL);
   const [sessionId, setSessionId] = useState(ALL);
@@ -254,10 +248,10 @@ function EventsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshK
       <div className="flex flex-wrap gap-2">
         <Select value={kind} onValueChange={(v) => setKind(v ?? ALL)}>
           <SelectTrigger className="max-w-full min-w-32">
-            <SelectValue placeholder="Kind" />
+            <SelectValue placeholder={t("audit.filters.kindPlaceholder")} />
           </SelectTrigger>
           <SelectContent className="w-auto min-w-48" alignItemWithTrigger={false}>
-            <SelectItem value={ALL}>All kinds</SelectItem>
+            <SelectItem value={ALL}>{t("audit.filters.allKinds")}</SelectItem>
             {kinds.map((k) => (
               <SelectItem key={k} value={k}>
                 {k}
@@ -270,29 +264,29 @@ function EventsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshK
 
         <Select value={ok} onValueChange={(v) => setOk(v ?? ALL)}>
           <SelectTrigger className="max-w-full min-w-28">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={t("audit.filters.statusPlaceholder")} />
           </SelectTrigger>
           <SelectContent className="w-auto min-w-40" alignItemWithTrigger={false}>
-            <SelectItem value={ALL}>Any status</SelectItem>
-            <SelectItem value="ok">OK</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value={ALL}>{t("audit.filters.anyStatus")}</SelectItem>
+            <SelectItem value="ok">{t("audit.filters.ok")}</SelectItem>
+            <SelectItem value="failed">{t("audit.filters.failed")}</SelectItem>
           </SelectContent>
         </Select>
 
         <Input
-          placeholder="Search kind/state/detail…"
+          placeholder={t("audit.filters.searchEventsPlaceholder")}
           className="w-48"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <Input
-          placeholder="Since (ISO8601)"
+          placeholder={t("audit.filters.sincePlaceholder")}
           className="w-44"
           value={since}
           onChange={(e) => setSince(e.target.value)}
         />
         <Input
-          placeholder="Until (ISO8601)"
+          placeholder={t("audit.filters.untilPlaceholder")}
           className="w-44"
           value={until}
           onChange={(e) => setUntil(e.target.value)}
@@ -303,11 +297,11 @@ function EventsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshK
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Time</TableHead>
-              <TableHead>Kind</TableHead>
-              <TableHead>State</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Detail</TableHead>
+              <TableHead>{t("audit.table.time")}</TableHead>
+              <TableHead>{t("audit.table.kind")}</TableHead>
+              <TableHead>{t("audit.table.state")}</TableHead>
+              <TableHead>{t("audit.table.status")}</TableHead>
+              <TableHead>{t("audit.table.detail")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -325,7 +319,7 @@ function EventsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshK
                       <span className="text-xs text-muted-foreground">—</span>
                     ) : (
                       <Badge variant={e.ok ? "default" : "destructive"} className={cn(e.ok && "border-signal bg-signal text-signal-foreground")}>
-                        {e.ok ? "ok" : "failed"}
+                        {e.ok ? t("audit.filters.ok") : t("audit.filters.failed")}
                       </Badge>
                     )}
                   </TableCell>
@@ -347,19 +341,20 @@ function EventsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshK
             {events.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
-                  No events match these filters.
+                  {t("audit.noEventsMatch")}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      {loading && <p className="text-xs text-muted-foreground">Loading…</p>}
+      {loading && <p className="text-xs text-muted-foreground">{t("audit.loading")}</p>}
     </div>
   );
 }
 
 function CommandsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshKey: number }) {
+  const { t } = useTranslation();
   const [sessionId, setSessionId] = useState(ALL);
   const [failedOnly, setFailedOnly] = useState(ALL);
   const [search, setSearch] = useState("");
@@ -402,17 +397,17 @@ function CommandsView({ sessions, refreshKey }: { sessions: SessionRow[]; refres
 
         <Select value={failedOnly} onValueChange={(v) => setFailedOnly(v ?? ALL)}>
           <SelectTrigger className="max-w-full min-w-28">
-            <SelectValue placeholder="Exit status" />
+            <SelectValue placeholder={t("audit.filters.exitStatusPlaceholder")} />
           </SelectTrigger>
           <SelectContent className="w-auto min-w-40" alignItemWithTrigger={false}>
-            <SelectItem value={ALL}>Any exit status</SelectItem>
-            <SelectItem value="ok">Exit 0</SelectItem>
-            <SelectItem value="failed">Nonzero exit</SelectItem>
+            <SelectItem value={ALL}>{t("audit.filters.anyExitStatus")}</SelectItem>
+            <SelectItem value="ok">{t("audit.filters.exit0")}</SelectItem>
+            <SelectItem value="failed">{t("audit.filters.nonzeroExit")}</SelectItem>
           </SelectContent>
         </Select>
 
         <Input
-          placeholder="Search command/stdout/stderr…"
+          placeholder={t("audit.filters.searchCommandsPlaceholder")}
           className="w-64"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -423,10 +418,10 @@ function CommandsView({ sessions, refreshKey }: { sessions: SessionRow[]; refres
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Time</TableHead>
-              <TableHead>Command</TableHead>
-              <TableHead>Exit</TableHead>
-              <TableHead>Duration</TableHead>
+              <TableHead>{t("audit.table.time")}</TableHead>
+              <TableHead>{t("audit.table.command")}</TableHead>
+              <TableHead>{t("audit.table.exit")}</TableHead>
+              <TableHead>{t("audit.table.duration")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -440,7 +435,7 @@ function CommandsView({ sessions, refreshKey }: { sessions: SessionRow[]; refres
                   <TableCell className="max-w-160 truncate font-mono text-xs">{c.command}</TableCell>
                   <TableCell>
                     {c.exitCode === null ? (
-                      <Badge variant="destructive">no response</Badge>
+                      <Badge variant="destructive">{t("audit.noResponse")}</Badge>
                     ) : (
                       <Badge
                         variant={c.exitCode === 0 ? "default" : "destructive"}
@@ -459,15 +454,15 @@ function CommandsView({ sessions, refreshKey }: { sessions: SessionRow[]; refres
                     <TableCell colSpan={4} className="bg-muted/50">
                       <div className="flex flex-col gap-2">
                         <div>
-                          <div className="text-xs font-medium text-muted-foreground">stdout</div>
+                          <div className="text-xs font-medium text-muted-foreground">{t("audit.stdout")}</div>
                           <pre className="max-h-64 overflow-auto font-mono text-xs whitespace-pre-wrap">
-                            {c.stdout || "(empty)"}
+                            {c.stdout || t("audit.empty")}
                           </pre>
                         </div>
                         <div>
-                          <div className="text-xs font-medium text-muted-foreground">stderr</div>
+                          <div className="text-xs font-medium text-muted-foreground">{t("audit.stderr")}</div>
                           <pre className="max-h-64 overflow-auto font-mono text-xs whitespace-pre-wrap">
-                            {c.stderr || "(empty)"}
+                            {c.stderr || t("audit.empty")}
                           </pre>
                         </div>
                       </div>
@@ -479,19 +474,20 @@ function CommandsView({ sessions, refreshKey }: { sessions: SessionRow[]; refres
             {rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
-                  No commands match these filters.
+                  {t("audit.noCommandsMatch")}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      {loading && <p className="text-xs text-muted-foreground">Loading…</p>}
+      {loading && <p className="text-xs text-muted-foreground">{t("audit.loading")}</p>}
     </div>
   );
 }
 
 function ErrorsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshKey: number }) {
+  const { t } = useTranslation();
   const [contexts, setContexts] = useState<string[]>([]);
   const [context, setContext] = useState(ALL);
   const [sessionId, setSessionId] = useState(ALL);
@@ -537,10 +533,10 @@ function ErrorsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshK
       <div className="flex flex-wrap gap-2">
         <Select value={context} onValueChange={(v) => setContext(v ?? ALL)}>
           <SelectTrigger className="max-w-full min-w-32">
-            <SelectValue placeholder="Context" />
+            <SelectValue placeholder={t("audit.filters.contextPlaceholder")} />
           </SelectTrigger>
           <SelectContent className="w-auto min-w-48" alignItemWithTrigger={false}>
-            <SelectItem value={ALL}>All contexts</SelectItem>
+            <SelectItem value={ALL}>{t("audit.filters.allContexts")}</SelectItem>
             {contexts.map((c) => (
               <SelectItem key={c} value={c}>
                 {c}
@@ -552,7 +548,7 @@ function ErrorsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshK
         <SessionSelect sessions={sessions} value={sessionId} onChange={setSessionId} />
 
         <Input
-          placeholder="Search context/message/detail…"
+          placeholder={t("audit.filters.searchErrorsPlaceholder")}
           className="w-64"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -563,9 +559,9 @@ function ErrorsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshK
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Time</TableHead>
-              <TableHead>Context</TableHead>
-              <TableHead>Message</TableHead>
+              <TableHead>{t("audit.table.time")}</TableHead>
+              <TableHead>{t("audit.table.context")}</TableHead>
+              <TableHead>{t("audit.table.message")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -596,14 +592,14 @@ function ErrorsView({ sessions, refreshKey }: { sessions: SessionRow[]; refreshK
             {rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-sm text-muted-foreground">
-                  No errors match these filters.
+                  {t("audit.noErrorsMatch")}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      {loading && <p className="text-xs text-muted-foreground">Loading…</p>}
+      {loading && <p className="text-xs text-muted-foreground">{t("audit.loading")}</p>}
     </div>
   );
 }

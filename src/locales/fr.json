@@ -1,0 +1,330 @@
+{
+  "app": {
+    "title": "Core Keeper World Manager",
+    "loading": "Chargement…",
+    "tabs": {
+      "server": "Serveur",
+      "audit": "Journal d'audit",
+      "stats": "Statistiques",
+      "library": "Bibliothèque de mondes",
+      "push": "Envoyer un monde",
+      "pull": "Récupérer un monde",
+      "terminal": "Terminal"
+    },
+    "noConnection": {
+      "title": "Aucune connexion active",
+      "body": "Choisissez ou ajoutez un profil ci-dessus, puis Connecter. La première connexion à un profil déclenche automatiquement la détection."
+    }
+  },
+  "operations": {
+    "push": "envoi",
+    "pull": "récupération",
+    "restore": "restauration"
+  },
+  "common": {
+    "anotherOperationInProgress": "Une autre opération est déjà en cours."
+  },
+  "language": {
+    "toggleTitle": "Langue",
+    "system": "Système"
+  },
+  "meta": {
+    "nativeName": "Français"
+  },
+  "connectionBar": {
+    "selectProfilePlaceholder": "Choisir un profil…",
+    "newProfile": "Nouveau profil",
+    "editProfile": "Modifier le profil",
+    "deleteProfile": "Supprimer le profil",
+    "connect": "Connecter",
+    "disconnect": "Déconnecter",
+    "disconnectBusyTitle": "Une opération ({{operation}}) est en cours",
+    "operationInProgress": "{{operation}} en cours…",
+    "setUpKeyAuth": "Configurer l'auth. par clé",
+    "settingUpKeyAuth": "Configuration de l'auth. par clé…",
+    "status": {
+      "disconnected": "Déconnecté",
+      "connecting": "Connexion…",
+      "connectedRaw": "Connecté (détection requise)",
+      "connectedTarget": "Connecté"
+    },
+    "toasts": {
+      "requiredError": "Le nom, l'hôte et l'utilisateur sont requis.",
+      "profileUpdated": "Profil « {{name}} » mis à jour.",
+      "profileAdded": "Profil « {{name}} » ajouté.",
+      "profileDeleted": "Profil « {{name}} » supprimé.",
+      "keyAuthSuccess": "Auth. par clé configurée — le mot de passe ne sera plus demandé."
+    },
+    "newProfileDialog": {
+      "titleNew": "Nouveau profil de connexion",
+      "titleEdit": "Modifier {{name}}",
+      "descNew": "Détails de connexion SSH. Les nouveaux profils démarrent en auth. par mot de passe — une fois connecté, utilisez « Configurer l'auth. par clé » pour passer à une clé et ne plus retaper le mot de passe.",
+      "descEdit": "La méthode d'auth., la clé enregistrée et la détection restent inchangées — seuls ces champs changent.",
+      "namePlaceholder": "Nom (ex. Core Keeper LXC)",
+      "hostPlaceholder": "Hôte",
+      "portPlaceholder": "Port",
+      "userPlaceholder": "Utilisateur (ex. root)",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "add": "Ajouter le profil"
+    },
+    "deleteDialog": {
+      "title": "Supprimer {{name}} ?",
+      "desc": "Supprime le profil et sa détection mise en cache. Tout mot de passe ou clé enregistrés dans le trousseau du système restent intacts. Action irréversible depuis cet écran.",
+      "cancel": "Annuler",
+      "confirm": "Supprimer"
+    },
+    "passwordDialog": {
+      "title": "Connexion à {{name}}",
+      "desc": "Mot de passe pour {{user}}@{{host}}. Jamais enregistré sauf si vous activez « enregistrer le mot de passe ».",
+      "cancel": "Annuler",
+      "connect": "Connecter",
+      "connecting": "Connexion…"
+    },
+    "keyAuthDialog": {
+      "title": "Configurer l'auth. par clé pour {{name}} ?",
+      "desc": "Génère une nouvelle clé SSH (conservée localement, envoyée uniquement vers <1>~/.ssh/authorized_keys</1> de cet hôte) et bascule ce profil vers l'auth. par clé. Le mot de passe ne sera plus demandé.",
+      "cancel": "Annuler",
+      "confirm": "Générer et installer la clé"
+    }
+  },
+  "discoveryConfirm": {
+    "title": "Confirmer ce qui a été trouvé",
+    "descPrefix": "Rien n'est enregistré tant que vous ne confirmez pas — SPEC §8. OS détecté :",
+    "unknownOs": "inconnu",
+    "service": "Service",
+    "worldsPath": "Chemin des mondes",
+    "manualUnitPlaceholder": "Aucun service auto-détecté — entrez un nom d'unité systemd manuellement",
+    "pickServicePlaceholder": "Choisir le vrai service Core Keeper…",
+    "manualWorldsPathPlaceholder": "Aucun dossier de mondes trouvé — entrez le chemin manuellement",
+    "pickWorldsPathPlaceholder": "Choisir le dossier des mondes…",
+    "rescan": "Redétecter",
+    "confirm": "Confirmer",
+    "confirming": "Confirmation…",
+    "toasts": {
+      "pickServiceError": "Choisissez (ou entrez) un service avant de confirmer.",
+      "pickWorldsPathError": "Choisissez (ou entrez) un chemin de mondes avant de confirmer.",
+      "confirmed": "Détection confirmée."
+    }
+  },
+  "stats": {
+    "title": "Statistiques du serveur",
+    "refresh": "Actualiser",
+    "since": "depuis {{time}}",
+    "uptime": "disponibilité {{time}}",
+    "serverClock": "horloge serveur {{time}}",
+    "currentWorld": "Monde actuel",
+    "noGameId": "aucun identifiant de partie capturé pour l'instant",
+    "copyGameId": "Copier l'identifiant de partie",
+    "memory": "Mémoire",
+    "diskWorlds": "Disque (mondes)",
+    "udpListening": "Écoute UDP",
+    "nothingFound": "rien trouvé",
+    "recentLog": "Journal récent",
+    "empty": "(vide)",
+    "operationInProgress": "en cours",
+    "toasts": {
+      "gameIdCopied": "Identifiant de partie copié."
+    }
+  },
+  "logDrawer": {
+    "trigger": "Journal en direct",
+    "title": "Journal en direct",
+    "desc": "Actualisation toutes les {{seconds}}s — pas un vrai flux -f, mais suffisant pour suivre en direct.",
+    "empty": "(vide)"
+  },
+  "push": {
+    "title": "Envoyer un monde",
+    "desc": "Arrête le serveur en direct, sauvegarde le monde actuel, installe le vôtre, redémarre et vérifie — annule automatiquement en cas d'échec. Aucune garantie contre la perte de données — conservez vos propres sauvegardes.",
+    "chooseFile": "Choisir un fichier (.zip ou .world.gzip)",
+    "chooseFolder": "Choisir un dossier",
+    "otherOpBanner": "Une opération ({{operation}}) est en cours — terminez-la ou attendez avant de lancer un envoi.",
+    "foundWorlds": "{{count}} mondes trouvés — choisissez-en un :",
+    "pickSlotPlaceholder": "Choisir un emplacement…",
+    "slotOption": "emplacement {{slot}} — {{size}}, {{modified}}",
+    "pugbackupNote": "↳ Sauvegarde continue propre à Core Keeper pour cet emplacement, trouvée à côté du fichier principal — incluse automatiquement, les deux voyagent ensemble.",
+    "pushThisWorld": "Envoyer ce monde",
+    "resultDone": "Terminé",
+    "resultLive": "le monde {{slot}} est en ligne",
+    "resultUploaded": "{{size}} envoyés",
+    "resultGameId": "· identifiant de partie {{id}}",
+    "resultBackup": "monde précédent sauvegardé dans {{path}}",
+    "confirmTitle": "Installer le monde {{slot}} ?",
+    "confirmDesc": "Ceci arrête le serveur Core Keeper en direct, sauvegarde le monde actuel (daté, restaurable), installe le vôtre, redémarre et vérifie. En cas d'échec, la sauvegarde est restaurée et le serveur redémarré automatiquement.",
+    "cancel": "Annuler",
+    "confirmButton": "Arrêter le serveur et envoyer",
+    "toasts": {
+      "success": "Le monde {{slot}} a été installé."
+    },
+    "stepper": {
+      "upload": "Envoi",
+      "checkService": "Vérif. service",
+      "stop": "Arrêt",
+      "backUp": "Sauvegarde",
+      "copyIn": "Copie",
+      "fixPerms": "Permissions",
+      "start": "Démarrage",
+      "captureGameId": "Identifiant de partie",
+      "verify": "Vérification",
+      "failedBanner": "Annulé — un redémarrage du serveur a été tenté automatiquement."
+    }
+  },
+  "pull": {
+    "title": "Récupérer un monde",
+    "desc": "Arrête le serveur en direct juste le temps de copier un monde cohérent, redémarre immédiatement, puis vous laisse l'enregistrer localement. Aucune garantie contre la perte de données — conservez vos propres sauvegardes.",
+    "refresh": "Actualiser",
+    "pickSlotPlaceholder": "Choisir un emplacement…",
+    "slotOption": "emplacement {{slot}} — {{size}}, {{modified}}",
+    "noWorlds": "Aucun monde trouvé sur le serveur.",
+    "otherOpBanner": "Une opération ({{operation}}) est en cours — terminez-la ou attendez avant de lancer une récupération.",
+    "pullWorldButton": "Récupérer le monde {{slot}}",
+    "confirmTitle": "Récupérer le monde {{slot}} ?",
+    "confirmDesc": "Arrête brièvement le serveur Core Keeper en direct pour copier un fichier de monde cohérent, puis le redémarre immédiatement. Rien n'est modifié sur le serveur.",
+    "cancel": "Annuler",
+    "confirmButton": "Arrêter le serveur et récupérer",
+    "downloadedPrompt": "{{size}} téléchargés — enregistrer le monde {{slot}} comme :",
+    "saveFolder": "Dossier…",
+    "saveZip": ".zip…",
+    "savedTo": "enregistré dans {{path}}",
+    "toasts": {
+      "success": "Monde {{slot}} téléchargé — choisissez où l'enregistrer.",
+      "saved": "Enregistré dans {{path}}"
+    },
+    "stepper": {
+      "checkService": "Vérif. service",
+      "stop": "Arrêt",
+      "download": "Téléchargement",
+      "restart": "Redémarrage",
+      "failedBanner": "Échec — un redémarrage a quand même été tenté automatiquement."
+    }
+  },
+  "worldLibrary": {
+    "title": "Bibliothèque de mondes",
+    "desc": "Ce qui est en ligne sur le serveur, et chaque sauvegarde datée créée par l'application. Restaurer suit la même procédure sécurisée qu'un envoi — aucune garantie contre la perte de données, conservez vos propres sauvegardes.",
+    "refresh": "Actualiser",
+    "loading": "Chargement…",
+    "otherOpBanner": "Une opération ({{operation}}) est en cours — terminez-la ou attendez avant de lancer une restauration.",
+    "liveOnServer": "En ligne sur le serveur",
+    "noWorlds": "Aucun monde trouvé sur le serveur.",
+    "backups": "Sauvegardes",
+    "noBackupsYet": "— aucune pour l'instant ; votre premier envoi ou restauration en créera une.",
+    "restoreButton": "Restaurer",
+    "confirmTitle": "Restaurer le monde {{slot}} à partir de cette sauvegarde ?",
+    "confirmDesc": "Arrête le serveur en direct, sauvegarde ce qui est actuellement en ligne (pour pouvoir annuler cette restauration aussi), installe cette sauvegarde, redémarre et vérifie.",
+    "cancel": "Annuler",
+    "confirmButton": "Arrêter le serveur et restaurer",
+    "restoredResult": "Monde {{slot}} restauré",
+    "gameId": "· identifiant de partie {{id}}",
+    "safetyBackup": "sauvegarde de sécurité : {{path}}",
+    "toasts": {
+      "success": "Monde {{slot}} restauré à partir de la sauvegarde."
+    },
+    "stepper": {
+      "checkService": "Vérif. service",
+      "stop": "Arrêt",
+      "backUp": "Sauvegarde",
+      "copyIn": "Copie",
+      "fixPerms": "Permissions",
+      "start": "Démarrage",
+      "captureGameId": "Identifiant de partie",
+      "verify": "Vérification",
+      "failedBanner": "Annulé — une sauvegarde de sécurité a été restaurée et le serveur redémarré automatiquement."
+    }
+  },
+  "terminal": {
+    "title": "Terminal",
+    "desc": "Un vrai shell via SSH — même niveau de confiance que ssh root@host, non isolé.",
+    "closeSession": "Fermer la session",
+    "startSession": "Démarrer une session terminal",
+    "starting": "Démarrage…",
+    "otherOpBanner": "Une opération ({{operation}}) est en cours — les commandes lancées ici peuvent entrer en conflit avec sa propre séquence d'arrêt/démarrage. Mieux vaut attendre.",
+    "noActiveSession": "Aucune session active. Cliquez sur « Démarrer une session terminal » pour ouvrir un vrai shell.",
+    "sessionClosed": "[session fermée]"
+  },
+  "audit": {
+    "title": "Journal d'audit",
+    "export": "Exporter (CSV + db)",
+    "exporting": "Exportation…",
+    "clearLog": "Vider le journal",
+    "clearing": "Suppression…",
+    "refresh": "Actualiser",
+    "tabs": {
+      "events": "Événements",
+      "commands": "Commandes SSH",
+      "errors": "Erreurs"
+    },
+    "confirm1": {
+      "title": "Vider tout le journal d'audit ?",
+      "desc": "Supprime chaque session, événement, commande SSH, erreur, opération sur fichier et sauvegarde — tout, pas seulement ce qui est filtré actuellement. Action irréversible.",
+      "cancel": "Annuler",
+      "confirm": "Oui, tout vider"
+    },
+    "confirm2": {
+      "title": "Non, sérieusement — vous êtes VRAIMENT sûr ?",
+      "desc": "C'est l'équivalent numérique de détruire la boîte noire juste avant l'arrivée des enquêteurs. Chaque mystère « pourquoi le serveur est-il tombé à 3h du matin » que vous auriez pu résoudre — disparu. Chaque restauration dont vous étiez discrètement fier — jamais arrivée. Le journal d'audit ne s'améliore pas avec l'âge, il meurt, tout simplement, et c'est vous qui tenez le couteau. Dernière chance de reculer tranquillement.",
+      "cancel": "Non, j'ai paniqué",
+      "confirm": "Oui. Faites-le. Laissez partir tranquillement."
+    },
+    "toasts": {
+      "cleared": "Journal d'audit vidé.",
+      "exported": "Exporté vers {{path}}"
+    },
+    "filters": {
+      "allSessions": "Toutes les sessions",
+      "allKinds": "Tous les types",
+      "anyStatus": "Tout statut",
+      "ok": "OK",
+      "failed": "Échec",
+      "anyExitStatus": "Tout code de sortie",
+      "exit0": "Sortie 0",
+      "nonzeroExit": "Sortie non nulle",
+      "allContexts": "Tous les contextes",
+      "sessionPlaceholder": "Session",
+      "kindPlaceholder": "Type",
+      "statusPlaceholder": "Statut",
+      "exitStatusPlaceholder": "Code de sortie",
+      "contextPlaceholder": "Contexte",
+      "searchEventsPlaceholder": "Rechercher type/état/détail…",
+      "searchCommandsPlaceholder": "Rechercher commande/stdout/stderr…",
+      "searchErrorsPlaceholder": "Rechercher contexte/message/détail…",
+      "sincePlaceholder": "Depuis (ISO8601)",
+      "untilPlaceholder": "Jusqu'à (ISO8601)"
+    },
+    "table": {
+      "time": "Heure",
+      "kind": "Type",
+      "state": "État",
+      "status": "Statut",
+      "detail": "Détail",
+      "command": "Commande",
+      "exit": "Sortie",
+      "duration": "Durée",
+      "context": "Contexte",
+      "message": "Message"
+    },
+    "loading": "Chargement…",
+    "noResponse": "aucune réponse",
+    "stdout": "stdout",
+    "stderr": "stderr",
+    "empty": "(vide)",
+    "noEventsMatch": "Aucun événement ne correspond à ces filtres.",
+    "noCommandsMatch": "Aucune commande ne correspond à ces filtres.",
+    "noErrorsMatch": "Aucune erreur ne correspond à ces filtres."
+  },
+  "about": {
+    "buttonTitle": "À propos",
+    "title": "Core Keeper World Manager",
+    "versionDesc": "Version {{version}} — sous licence MIT. Un outil de homelab pour gérer les mondes d'un serveur dédié Core Keeper via SSH ; voir le dépôt GitHub du projet pour le code source et la documentation.",
+    "loading": "Chargement…",
+    "connectionProfiles": "Profils de connexion",
+    "auditLog": "Journal d'audit (SQLite)",
+    "generatedKeys": "Clés SSH générées",
+    "showInFolder": "Afficher dans le dossier"
+  },
+  "disclaimer": {
+    "title": "Avant de commencer",
+    "body1": "Cet outil arrête votre serveur Core Keeper et écrase les fichiers de monde sur un hôte distant que vous contrôlez. Il sauvegarde avant chaque étape destructive et annule en cas d'échec — mais c'est un outil de homelab, pas un produit de sauvegarde certifié, et il vient <1>sans aucune garantie contre la perte de données ou la corruption</1>.",
+    "body2": "Conservez vos propres sauvegardes indépendantes de tout ce que vous ne pouvez pas vous permettre de perdre.",
+    "understand": "J'ai compris"
+  }
+}

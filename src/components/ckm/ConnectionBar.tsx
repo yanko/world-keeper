@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { Trans, useTranslation } from "react-i18next";
 import { PencilIcon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import * as api from "@/lib/api";
 import { useOperations } from "@/lib/operations";
 import { ThemeToggle } from "@/components/ckm/ThemeToggle";
 import { AboutDialog } from "@/components/ckm/AboutDialog";
+import { LanguageToggle } from "@/components/ckm/LanguageToggle";
 
 export type ConnectionStatus =
   | "disconnected"
@@ -53,6 +55,7 @@ export function ConnectionBar({
   onConnect,
   onDisconnect,
 }: ConnectionBarProps) {
+  const { t } = useTranslation();
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [draft, setDraft] = useState(emptyDraft);
@@ -88,7 +91,7 @@ export function ConnectionBar({
 
   async function submitProfile() {
     if (!draft.name || !draft.host || !draft.user) {
-      toast.error("Name, host, and user are required.");
+      toast.error(t("connectionBar.toasts.requiredError"));
       return;
     }
     // Editing preserves everything the simple form doesn't show (auth/keyPath/
@@ -111,7 +114,11 @@ export function ConnectionBar({
       onConfigChanged(cfg);
       onSelectProfile(profile.id);
       setProfileDialogOpen(false);
-      toast.success(editingProfile ? `Profile "${profile.name}" updated.` : `Profile "${profile.name}" added.`);
+      toast.success(
+        editingProfile
+          ? t("connectionBar.toasts.profileUpdated", { name: profile.name })
+          : t("connectionBar.toasts.profileAdded", { name: profile.name })
+      );
     } catch (e) {
       toast.error(String(e));
     }
@@ -125,7 +132,7 @@ export function ConnectionBar({
       onConfigChanged(cfg);
       const fallback = cfg.profiles.find((p) => p.id !== selectedProfile.id);
       if (fallback) onSelectProfile(fallback.id);
-      toast.success(`Profile "${selectedProfile.name}" deleted.`);
+      toast.success(t("connectionBar.toasts.profileDeleted", { name: selectedProfile.name }));
     } catch (e) {
       toast.error(String(e));
     }
@@ -168,7 +175,7 @@ export function ConnectionBar({
       await api.setupKeyAuth();
       const cfg = await api.getConfig();
       onConfigChanged(cfg);
-      toast.success("Key auth set up — future connects won't need the password.");
+      toast.success(t("connectionBar.toasts.keyAuthSuccess"));
     } catch (e) {
       toast.error(String(e));
     } finally {
@@ -177,10 +184,10 @@ export function ConnectionBar({
   }
 
   const statusLabel: Record<ConnectionStatus, string> = {
-    disconnected: "Disconnected",
-    connecting: "Connecting…",
-    "connected-raw": "Connected (needs discovery)",
-    "connected-target": "Connected",
+    disconnected: t("connectionBar.status.disconnected"),
+    connecting: t("connectionBar.status.connecting"),
+    "connected-raw": t("connectionBar.status.connectedRaw"),
+    "connected-target": t("connectionBar.status.connectedTarget"),
   };
   const statusVariant: Record<ConnectionStatus, "secondary" | "default" | "destructive"> = {
     disconnected: "secondary",
@@ -197,9 +204,9 @@ export function ConnectionBar({
         disabled={status !== "disconnected"}
       >
         <SelectTrigger className="max-w-full min-w-40">
-          <SelectValue placeholder="Select a profile…">
+          <SelectValue placeholder={t("connectionBar.selectProfilePlaceholder")}>
             {(value: string | null) =>
-              config.profiles.find((p) => p.id === value)?.name ?? "Select a profile…"
+              config.profiles.find((p) => p.id === value)?.name ?? t("connectionBar.selectProfilePlaceholder")
             }
           </SelectValue>
         </SelectTrigger>
@@ -221,7 +228,7 @@ export function ConnectionBar({
         disabled={status !== "disconnected"}
         onClick={openNewProfileDialog}
       >
-        New profile
+        {t("connectionBar.newProfile")}
       </Button>
 
       <Button
@@ -229,7 +236,7 @@ export function ConnectionBar({
         size="icon-sm"
         disabled={!canEditOrDelete}
         onClick={openEditProfileDialog}
-        title="Edit profile"
+        title={t("connectionBar.editProfile")}
       >
         <PencilIcon />
       </Button>
@@ -239,7 +246,7 @@ export function ConnectionBar({
         size="icon-sm"
         disabled={!canEditOrDelete}
         onClick={() => setDeleteOpen(true)}
-        title="Delete profile"
+        title={t("connectionBar.deleteProfile")}
       >
         <Trash2Icon />
       </Button>
@@ -250,17 +257,21 @@ export function ConnectionBar({
           disabled={!selectedProfile}
           onClick={startConnect}
         >
-          Connect
+          {t("connectionBar.connect")}
         </Button>
       ) : (
         <Button
           size="sm"
           variant="destructive"
           disabled={activeOperation !== null}
-          title={activeOperation ? `A ${activeOperation} is in progress` : undefined}
+          title={
+            activeOperation
+              ? t("connectionBar.disconnectBusyTitle", { operation: t(`operations.${activeOperation}`) })
+              : undefined
+          }
           onClick={onDisconnect}
         >
-          Disconnect
+          {t("connectionBar.disconnect")}
         </Button>
       )}
 
@@ -268,7 +279,7 @@ export function ConnectionBar({
 
       {activeOperation && (
         <Badge variant="secondary" className="animate-pulse">
-          {activeOperation} in progress…
+          {t("connectionBar.operationInProgress", { operation: t(`operations.${activeOperation}`) })}
         </Badge>
       )}
 
@@ -279,12 +290,13 @@ export function ConnectionBar({
           disabled={settingUpKeyAuth}
           onClick={() => setKeyAuthOpen(true)}
         >
-          {settingUpKeyAuth ? "Setting up key auth…" : "Set up key auth"}
+          {settingUpKeyAuth ? t("connectionBar.settingUpKeyAuth") : t("connectionBar.setUpKeyAuth")}
         </Button>
       )}
 
       <div className="ml-auto flex items-center gap-2">
         <AboutDialog />
+        <LanguageToggle />
         <ThemeToggle />
       </div>
 
@@ -292,43 +304,51 @@ export function ConnectionBar({
       <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingProfile ? `Edit ${editingProfile.name}` : "New connection profile"}</DialogTitle>
+            <DialogTitle>
+              {editingProfile
+                ? t("connectionBar.newProfileDialog.titleEdit", { name: editingProfile.name })
+                : t("connectionBar.newProfileDialog.titleNew")}
+            </DialogTitle>
             <DialogDescription>
               {editingProfile
-                ? "Auth method, saved key, and discovery stay as they are — only these fields change."
-                : 'SSH connection details. New profiles start on password auth — once connected, use "Set up key auth" to switch to a key so you won\'t need to retype the password.'}
+                ? t("connectionBar.newProfileDialog.descEdit")
+                : t("connectionBar.newProfileDialog.descNew")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
             <Input
-              placeholder="Name (e.g. Core Keeper LXC)"
+              placeholder={t("connectionBar.newProfileDialog.namePlaceholder")}
               value={draft.name}
               onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
             />
             <div className="flex gap-2">
               <Input
-                placeholder="Host"
+                placeholder={t("connectionBar.newProfileDialog.hostPlaceholder")}
                 value={draft.host}
                 onChange={(e) => setDraft((d) => ({ ...d, host: e.target.value }))}
               />
               <Input
-                placeholder="Port"
+                placeholder={t("connectionBar.newProfileDialog.portPlaceholder")}
                 className="w-20"
                 value={draft.port}
                 onChange={(e) => setDraft((d) => ({ ...d, port: e.target.value }))}
               />
             </div>
             <Input
-              placeholder="User (e.g. root)"
+              placeholder={t("connectionBar.newProfileDialog.userPlaceholder")}
               value={draft.user}
               onChange={(e) => setDraft((d) => ({ ...d, user: e.target.value }))}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setProfileDialogOpen(false)}>
-              Cancel
+              {t("connectionBar.newProfileDialog.cancel")}
             </Button>
-            <Button onClick={submitProfile}>{editingProfile ? "Save changes" : "Add profile"}</Button>
+            <Button onClick={submitProfile}>
+              {editingProfile
+                ? t("connectionBar.newProfileDialog.save")
+                : t("connectionBar.newProfileDialog.add")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -337,18 +357,15 @@ export function ConnectionBar({
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete {selectedProfile?.name}?</DialogTitle>
-            <DialogDescription>
-              Removes the profile and its cached discovery info. Any saved password or
-              key in the OS keyring is left alone. This can't be undone from here.
-            </DialogDescription>
+            <DialogTitle>{t("connectionBar.deleteDialog.title", { name: selectedProfile?.name })}</DialogTitle>
+            <DialogDescription>{t("connectionBar.deleteDialog.desc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancel
+              {t("connectionBar.deleteDialog.cancel")}
             </Button>
             <Button variant="destructive" onClick={deleteSelectedProfile}>
-              Delete
+              {t("connectionBar.deleteDialog.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -358,10 +375,12 @@ export function ConnectionBar({
       <Dialog open={pwOpen} onOpenChange={setPwOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Connect to {selectedProfile?.name}</DialogTitle>
+            <DialogTitle>{t("connectionBar.passwordDialog.title", { name: selectedProfile?.name })}</DialogTitle>
             <DialogDescription>
-              Password for {selectedProfile?.user}@{selectedProfile?.host}. Never stored
-              unless you later enable "save password".
+              {t("connectionBar.passwordDialog.desc", {
+                user: selectedProfile?.user,
+                host: selectedProfile?.host,
+              })}
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -375,10 +394,10 @@ export function ConnectionBar({
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setPwOpen(false)}>
-              Cancel
+              {t("connectionBar.passwordDialog.cancel")}
             </Button>
             <Button onClick={submitPassword} disabled={connecting || !password}>
-              {connecting ? "Connecting…" : "Connect"}
+              {connecting ? t("connectionBar.passwordDialog.connecting") : t("connectionBar.passwordDialog.connect")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -388,18 +407,19 @@ export function ConnectionBar({
       <Dialog open={keyAuthOpen} onOpenChange={setKeyAuthOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Set up key auth for {selectedProfile?.name}?</DialogTitle>
+            <DialogTitle>{t("connectionBar.keyAuthDialog.title", { name: selectedProfile?.name })}</DialogTitle>
             <DialogDescription>
-              Generates a new SSH key (kept locally, never sent anywhere but this host's
-              <span className="font-mono"> ~/.ssh/authorized_keys</span>) and switches
-              this profile to key auth. You won't need to type the password again.
+              <Trans
+                i18nKey="connectionBar.keyAuthDialog.desc"
+                components={{ 1: <span className="font-mono" /> }}
+              />
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setKeyAuthOpen(false)}>
-              Cancel
+              {t("connectionBar.keyAuthDialog.cancel")}
             </Button>
-            <Button onClick={setUpKeyAuth}>Generate &amp; install key</Button>
+            <Button onClick={setUpKeyAuth}>{t("connectionBar.keyAuthDialog.confirm")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

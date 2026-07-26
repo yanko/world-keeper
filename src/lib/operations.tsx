@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import type {
   LocalWorldCandidate,
@@ -84,6 +85,7 @@ export function useOperations(): OperationsContextValue {
 }
 
 export function OperationsProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const [activeOperation, setActiveOperation] = useState<OperationKind | null>(null);
   const [push, setPush] = useState<PushOpState>(emptyPush);
   const [pull, setPull] = useState<PullOpState>(emptyPull);
@@ -100,7 +102,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const startPush = useCallback(
     async (candidate: LocalWorldCandidate) => {
       if (activeRef.current) {
-        toast.error("Another operation is already in progress.");
+        toast.error(t("common.anotherOperationInProgress"));
         return;
       }
       setActive("push");
@@ -111,7 +113,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       try {
         const r = await api.pushWorld(candidate);
         setPush((prev) => ({ ...prev, running: false, result: r }));
-        toast.success(`World ${r.slot} swapped in.`);
+        toast.success(t("push.toasts.success", { slot: r.slot }));
       } catch (e) {
         setPush((prev) => ({ ...prev, running: false, error: String(e) }));
         toast.error(String(e));
@@ -120,13 +122,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setActive(null);
       }
     },
-    [setActive]
+    [setActive, t]
   );
 
   const startPull = useCallback(
     async (slot: number) => {
       if (activeRef.current) {
-        toast.error("Another operation is already in progress.");
+        toast.error(t("common.anotherOperationInProgress"));
         return;
       }
       setActive("pull");
@@ -137,7 +139,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       try {
         const r = await api.pullWorld(slot);
         setPull((prev) => ({ ...prev, running: false, result: r }));
-        toast.success(`World ${r.slot} downloaded — pick where to save it.`);
+        toast.success(t("pull.toasts.success", { slot: r.slot }));
       } catch (e) {
         setPull((prev) => ({ ...prev, running: false, error: String(e) }));
         toast.error(String(e));
@@ -146,13 +148,13 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setActive(null);
       }
     },
-    [setActive]
+    [setActive, t]
   );
 
   const startRestore = useCallback(
     async (backupPath: string, slot: number) => {
       if (activeRef.current) {
-        toast.error("Another operation is already in progress.");
+        toast.error(t("common.anotherOperationInProgress"));
         return;
       }
       setActive("restore");
@@ -163,7 +165,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       try {
         const r = await api.restoreBackup(backupPath, slot);
         setRestore((prev) => ({ ...prev, running: false, result: r }));
-        toast.success(`World ${r.slot} restored from backup.`);
+        toast.success(t("worldLibrary.toasts.success", { slot: r.slot }));
       } catch (e) {
         setRestore((prev) => ({ ...prev, running: false, error: String(e) }));
         toast.error(String(e));
@@ -172,7 +174,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
         setActive(null);
       }
     },
-    [setActive]
+    [setActive, t]
   );
 
   const resetPush = useCallback(() => setPush(emptyPush), []);

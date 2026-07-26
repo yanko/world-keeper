@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ const LINES = 300;
 /// addition than this phase's scope. Polling every 2s over the existing `logs_tail`
 /// gets 90% of the "watch it happen" feel for a fraction of the complexity.
 export function LogDrawer() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,9 +32,9 @@ export function LogDrawer() {
 
     async function poll() {
       try {
-        const t = await api.getLogTail(LINES);
+        const tail = await api.getLogTail(LINES);
         if (!cancelled) {
-          setText(t);
+          setText(tail);
           setError(null);
         }
       } catch (e) {
@@ -60,15 +62,14 @@ export function LogDrawer() {
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Live log
+        {t("logDrawer.trigger")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Live log</DialogTitle>
+            <DialogTitle>{t("logDrawer.title")}</DialogTitle>
             <DialogDescription>
-              Polling every {POLL_MS / 1000}s — not a true <code>-f</code> stream, but
-              close enough to watch along.
+              {t("logDrawer.desc", { seconds: POLL_MS / 1000 })}
             </DialogDescription>
           </DialogHeader>
           {error && <div className="text-sm text-destructive">{error}</div>}
@@ -76,7 +77,7 @@ export function LogDrawer() {
             ref={scrollRef}
             className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-md bg-muted p-3 font-mono text-xs whitespace-pre-wrap"
           >
-            {text || "(empty)"}
+            {text || t("logDrawer.empty")}
           </pre>
         </DialogContent>
       </Dialog>

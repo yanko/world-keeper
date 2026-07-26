@@ -1,0 +1,330 @@
+{
+  "app": {
+    "title": "Core Keeper World Manager",
+    "loading": "Loading…",
+    "tabs": {
+      "server": "Server",
+      "audit": "Audit",
+      "stats": "Stats",
+      "library": "World library",
+      "push": "Push a world",
+      "pull": "Pull a world",
+      "terminal": "Terminal"
+    },
+    "noConnection": {
+      "title": "No active connection",
+      "body": "Pick or add a profile above, then Connect. First connect to a profile triggers the discovery probe automatically."
+    }
+  },
+  "operations": {
+    "push": "push",
+    "pull": "pull",
+    "restore": "restore"
+  },
+  "common": {
+    "anotherOperationInProgress": "Another operation is already in progress."
+  },
+  "language": {
+    "toggleTitle": "Language",
+    "system": "System"
+  },
+  "meta": {
+    "nativeName": "English"
+  },
+  "connectionBar": {
+    "selectProfilePlaceholder": "Select a profile…",
+    "newProfile": "New profile",
+    "editProfile": "Edit profile",
+    "deleteProfile": "Delete profile",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "disconnectBusyTitle": "A {{operation}} is in progress",
+    "operationInProgress": "{{operation}} in progress…",
+    "setUpKeyAuth": "Set up key auth",
+    "settingUpKeyAuth": "Setting up key auth…",
+    "status": {
+      "disconnected": "Disconnected",
+      "connecting": "Connecting…",
+      "connectedRaw": "Connected (needs discovery)",
+      "connectedTarget": "Connected"
+    },
+    "toasts": {
+      "requiredError": "Name, host, and user are required.",
+      "profileUpdated": "Profile \"{{name}}\" updated.",
+      "profileAdded": "Profile \"{{name}}\" added.",
+      "profileDeleted": "Profile \"{{name}}\" deleted.",
+      "keyAuthSuccess": "Key auth set up — future connects won't need the password."
+    },
+    "newProfileDialog": {
+      "titleNew": "New connection profile",
+      "titleEdit": "Edit {{name}}",
+      "descNew": "SSH connection details. New profiles start on password auth — once connected, use \"Set up key auth\" to switch to a key so you won't need to retype the password.",
+      "descEdit": "Auth method, saved key, and discovery stay as they are — only these fields change.",
+      "namePlaceholder": "Name (e.g. Core Keeper LXC)",
+      "hostPlaceholder": "Host",
+      "portPlaceholder": "Port",
+      "userPlaceholder": "User (e.g. root)",
+      "cancel": "Cancel",
+      "save": "Save changes",
+      "add": "Add profile"
+    },
+    "deleteDialog": {
+      "title": "Delete {{name}}?",
+      "desc": "Removes the profile and its cached discovery info. Any saved password or key in the OS keyring is left alone. This can't be undone from here.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "passwordDialog": {
+      "title": "Connect to {{name}}",
+      "desc": "Password for {{user}}@{{host}}. Never stored unless you later enable \"save password\".",
+      "cancel": "Cancel",
+      "connect": "Connect",
+      "connecting": "Connecting…"
+    },
+    "keyAuthDialog": {
+      "title": "Set up key auth for {{name}}?",
+      "desc": "Generates a new SSH key (kept locally, never sent anywhere but this host's <1>~/.ssh/authorized_keys</1>) and switches this profile to key auth. You won't need to type the password again.",
+      "cancel": "Cancel",
+      "confirm": "Generate & install key"
+    }
+  },
+  "discoveryConfirm": {
+    "title": "Confirm what was found",
+    "descPrefix": "Nothing is saved until you confirm — SPEC §8. Detected OS:",
+    "unknownOs": "unknown",
+    "service": "Service",
+    "worldsPath": "Worlds path",
+    "manualUnitPlaceholder": "No service auto-detected — enter a systemd unit name manually",
+    "pickServicePlaceholder": "Pick the real Core Keeper service…",
+    "manualWorldsPathPlaceholder": "No worlds dir found — enter the path manually",
+    "pickWorldsPathPlaceholder": "Pick the worlds directory…",
+    "rescan": "Re-scan",
+    "confirm": "Confirm",
+    "confirming": "Confirming…",
+    "toasts": {
+      "pickServiceError": "Pick (or enter) a service before confirming.",
+      "pickWorldsPathError": "Pick (or enter) a worlds path before confirming.",
+      "confirmed": "Discovery confirmed."
+    }
+  },
+  "stats": {
+    "title": "Server stats",
+    "refresh": "Refresh",
+    "since": "since {{time}}",
+    "uptime": "uptime {{time}}",
+    "serverClock": "server clock {{time}}",
+    "currentWorld": "Current world",
+    "noGameId": "no game id captured yet",
+    "copyGameId": "Copy game id",
+    "memory": "Memory",
+    "diskWorlds": "Disk (worlds)",
+    "udpListening": "UDP listening",
+    "nothingFound": "nothing found",
+    "recentLog": "Recent log",
+    "empty": "(empty)",
+    "operationInProgress": "in progress",
+    "toasts": {
+      "gameIdCopied": "Game id copied."
+    }
+  },
+  "logDrawer": {
+    "trigger": "Live log",
+    "title": "Live log",
+    "desc": "Polling every {{seconds}}s — not a true -f stream, but close enough to watch along.",
+    "empty": "(empty)"
+  },
+  "push": {
+    "title": "Push a world",
+    "desc": "Stops the live server, backs up the current world, swaps yours in, restarts, and verifies — auto-rolls back on any failure. No guarantee against data loss — keep your own backups.",
+    "chooseFile": "Choose file (.zip or .world.gzip)",
+    "chooseFolder": "Choose folder",
+    "otherOpBanner": "A {{operation}} is in progress — finish or wait before starting a push.",
+    "foundWorlds": "Found {{count}} worlds — pick one:",
+    "pickSlotPlaceholder": "Pick a slot…",
+    "slotOption": "slot {{slot}} — {{size}}, {{modified}}",
+    "pugbackupNote": "↳ Core Keeper's own rolling backup for this slot, found alongside the main file — included automatically, both travel together.",
+    "pushThisWorld": "Push this world",
+    "resultDone": "Done",
+    "resultLive": "world {{slot}} is live",
+    "resultUploaded": "{{size}} uploaded",
+    "resultGameId": "· game id {{id}}",
+    "resultBackup": "previous world backed up to {{path}}",
+    "confirmTitle": "Swap in world {{slot}}?",
+    "confirmDesc": "This stops the live Core Keeper server, backs up the current world (dated, restorable), copies yours in, restarts, and verifies. On any failure it automatically restores the backup and restarts the server.",
+    "cancel": "Cancel",
+    "confirmButton": "Stop server & push",
+    "toasts": {
+      "success": "World {{slot}} swapped in."
+    },
+    "stepper": {
+      "upload": "Upload",
+      "checkService": "Check service",
+      "stop": "Stop",
+      "backUp": "Back up",
+      "copyIn": "Copy in",
+      "fixPerms": "Fix perms",
+      "start": "Start",
+      "captureGameId": "Capture game id",
+      "verify": "Verify",
+      "failedBanner": "Rolled back — server restart was attempted automatically."
+    }
+  },
+  "pull": {
+    "title": "Pull a world",
+    "desc": "Stops the live server just long enough to copy a consistent world, restarts immediately, then lets you save it locally. No guarantee against data loss — keep your own backups.",
+    "refresh": "Refresh",
+    "pickSlotPlaceholder": "Pick a slot…",
+    "slotOption": "slot {{slot}} — {{size}}, {{modified}}",
+    "noWorlds": "No worlds found on the server.",
+    "otherOpBanner": "A {{operation}} is in progress — finish or wait before starting a pull.",
+    "pullWorldButton": "Pull world {{slot}}",
+    "confirmTitle": "Pull world {{slot}}?",
+    "confirmDesc": "Briefly stops the live Core Keeper server to copy a consistent world file, then restarts it immediately. Nothing on the server is modified.",
+    "cancel": "Cancel",
+    "confirmButton": "Stop server & pull",
+    "downloadedPrompt": "{{size}} downloaded — save world {{slot}} as:",
+    "saveFolder": "Folder…",
+    "saveZip": ".zip…",
+    "savedTo": "saved to {{path}}",
+    "toasts": {
+      "success": "World {{slot}} downloaded — pick where to save it.",
+      "saved": "Saved to {{path}}"
+    },
+    "stepper": {
+      "checkService": "Check service",
+      "stop": "Stop",
+      "download": "Download",
+      "restart": "Restart",
+      "failedBanner": "Failed — a restart was attempted automatically regardless."
+    }
+  },
+  "worldLibrary": {
+    "title": "World library",
+    "desc": "What's live on the server, and every dated backup this app has made. Restoring is the same safe envelope as a push — no guarantee against data loss, keep your own backups.",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "otherOpBanner": "A {{operation}} is in progress — finish or wait before starting a restore.",
+    "liveOnServer": "Live on server",
+    "noWorlds": "No worlds found on the server.",
+    "backups": "Backups",
+    "noBackupsYet": "— none yet; your first push or restore creates one.",
+    "restoreButton": "Restore",
+    "confirmTitle": "Restore world {{slot}} from this backup?",
+    "confirmDesc": "Stops the live server, backs up whatever's currently live (so this itself is undoable), copies this backup into place, restarts, and verifies.",
+    "cancel": "Cancel",
+    "confirmButton": "Stop server & restore",
+    "restoredResult": "Restored world {{slot}}",
+    "gameId": "· game id {{id}}",
+    "safetyBackup": "safety backup: {{path}}",
+    "toasts": {
+      "success": "World {{slot}} restored from backup."
+    },
+    "stepper": {
+      "checkService": "Check service",
+      "stop": "Stop",
+      "backUp": "Back up",
+      "copyIn": "Copy in",
+      "fixPerms": "Fix perms",
+      "start": "Start",
+      "captureGameId": "Capture game id",
+      "verify": "Verify",
+      "failedBanner": "Rolled back — a safety backup was restored and the server restarted automatically."
+    }
+  },
+  "terminal": {
+    "title": "Terminal",
+    "desc": "A real shell over SSH — same trust level as ssh root@host, not sandboxed.",
+    "closeSession": "Close session",
+    "startSession": "Start terminal session",
+    "starting": "Starting…",
+    "otherOpBanner": "A {{operation}} is in progress — commands run here can race its own stop/start sequence. Best to wait it out.",
+    "noActiveSession": "No active session. Click \"Start terminal session\" to open a real shell.",
+    "sessionClosed": "[session closed]"
+  },
+  "audit": {
+    "title": "Audit log",
+    "export": "Export (CSV + db)",
+    "exporting": "Exporting…",
+    "clearLog": "Clear log",
+    "clearing": "Clearing…",
+    "refresh": "Refresh",
+    "tabs": {
+      "events": "Events",
+      "commands": "SSH commands",
+      "errors": "Errors"
+    },
+    "confirm1": {
+      "title": "Clear the entire audit log?",
+      "desc": "Deletes every session, event, SSH command, error, file operation, and backup record — all of it, not just what's currently filtered. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Yes, clear it"
+    },
+    "confirm2": {
+      "title": "No, like — are you REALLY sure?",
+      "desc": "This is the digital equivalent of shredding the black box right before the NTSB shows up. Every \"why did the server die at 3am\" mystery you could've solved — gone. Every rollback you were quietly proud of — never happened. The audit log doesn't get better with age, it just dies, and you're the one holding the knife. Last chance to back away slowly.",
+      "cancel": "No, I panicked",
+      "confirm": "Yes. Do it. Let it go quietly."
+    },
+    "toasts": {
+      "cleared": "Audit log cleared.",
+      "exported": "Exported to {{path}}"
+    },
+    "filters": {
+      "allSessions": "All sessions",
+      "allKinds": "All kinds",
+      "anyStatus": "Any status",
+      "ok": "OK",
+      "failed": "Failed",
+      "anyExitStatus": "Any exit status",
+      "exit0": "Exit 0",
+      "nonzeroExit": "Nonzero exit",
+      "allContexts": "All contexts",
+      "sessionPlaceholder": "Session",
+      "kindPlaceholder": "Kind",
+      "statusPlaceholder": "Status",
+      "exitStatusPlaceholder": "Exit status",
+      "contextPlaceholder": "Context",
+      "searchEventsPlaceholder": "Search kind/state/detail…",
+      "searchCommandsPlaceholder": "Search command/stdout/stderr…",
+      "searchErrorsPlaceholder": "Search context/message/detail…",
+      "sincePlaceholder": "Since (ISO8601)",
+      "untilPlaceholder": "Until (ISO8601)"
+    },
+    "table": {
+      "time": "Time",
+      "kind": "Kind",
+      "state": "State",
+      "status": "Status",
+      "detail": "Detail",
+      "command": "Command",
+      "exit": "Exit",
+      "duration": "Duration",
+      "context": "Context",
+      "message": "Message"
+    },
+    "loading": "Loading…",
+    "noResponse": "no response",
+    "stdout": "stdout",
+    "stderr": "stderr",
+    "empty": "(empty)",
+    "noEventsMatch": "No events match these filters.",
+    "noCommandsMatch": "No commands match these filters.",
+    "noErrorsMatch": "No errors match these filters."
+  },
+  "about": {
+    "buttonTitle": "About",
+    "title": "Core Keeper World Manager",
+    "versionDesc": "Version {{version}} — MIT licensed. A homelab tool for managing a Core Keeper dedicated server's worlds over SSH; see the project's GitHub repo for source and docs.",
+    "loading": "Loading…",
+    "connectionProfiles": "Connection profiles",
+    "auditLog": "Audit log (SQLite)",
+    "generatedKeys": "Generated SSH keys",
+    "showInFolder": "Show in folder"
+  },
+  "disclaimer": {
+    "title": "Before you start",
+    "body1": "This tool stops your Core Keeper server and overwrites world files on a remote host you control. It backs up before every destructive step and rolls back on failure — but it's a homelab tool, not a certified backup product, and it comes with <1>no guarantee against data loss or corruption</1>.",
+    "body2": "Keep your own independent backups of anything you can't afford to lose.",
+    "understand": "I understand"
+  }
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { CopyIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,16 +40,8 @@ function statusClasses(status: string): string {
   return status === "active" ? "border-signal bg-signal text-signal-foreground" : "";
 }
 
-async function copyGameId(id: string) {
-  try {
-    await writeText(id);
-    toast.success("Game id copied.");
-  } catch (e) {
-    toast.error(String(e));
-  }
-}
-
 export function StatsPanel() {
+  const { t } = useTranslation();
   const { activeOperation, push, pull, restore } = useOperations();
   const [stats, setStats] = useState<ServerStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +66,15 @@ export function StatsPanel() {
     }
   }
 
+  async function copyGameId(id: string) {
+    try {
+      await writeText(id);
+      toast.success(t("stats.toasts.gameIdCopied"));
+    } catch (e) {
+      toast.error(String(e));
+    }
+  }
+
   useEffect(() => {
     refresh();
     const id = setInterval(refresh, POLL_INTERVAL_MS);
@@ -92,11 +94,11 @@ export function StatsPanel() {
   return (
     <Card className="flex h-full min-h-0 w-full flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Server stats</CardTitle>
+        <CardTitle>{t("stats.title")}</CardTitle>
         <div className="flex gap-2">
           <LogDrawer />
           <Button variant="outline" size="sm" onClick={refresh}>
-            Refresh
+            {t("stats.refresh")}
           </Button>
         </div>
       </CardHeader>
@@ -104,10 +106,10 @@ export function StatsPanel() {
         {activeOperation && (
           <div className="flex items-center gap-2 rounded-md border border-signal/40 bg-signal/10 p-2 text-sm">
             <Badge className="animate-pulse border-signal bg-signal text-signal-foreground">
-              {activeOperation}
+              {t(`operations.${activeOperation}`)}
             </Badge>
             <span>
-              in progress{currentStep ? ` — ${currentStep}` : ""}
+              {t("stats.operationInProgress")}{currentStep ? ` — ${currentStep}` : ""}
             </span>
           </div>
         )}
@@ -120,41 +122,41 @@ export function StatsPanel() {
               </Badge>
               {stats.activeSince && (
                 <span className="font-mono text-xs text-muted-foreground">
-                  since {stats.activeSince}
+                  {t("stats.since", { time: stats.activeSince })}
                 </span>
               )}
               <span className="text-xs text-muted-foreground">
-                uptime {formatUptime(stats.uptimeSeconds)}
+                {t("stats.uptime", { time: formatUptime(stats.uptimeSeconds) })}
               </span>
               {stats.serverTime && (
                 <span className="font-mono text-xs text-muted-foreground">
-                  server clock {stats.serverTime}
+                  {t("stats.serverClock", { time: stats.serverTime })}
                 </span>
               )}
             </div>
 
             <div>
-              <div className="text-sm text-muted-foreground">Current world</div>
+              <div className="text-sm text-muted-foreground">{t("stats.currentWorld")}</div>
               {stats.gameId ? (
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-sm">{stats.gameId}</span>
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    title="Copy game id"
+                    title={t("stats.copyGameId")}
                     onClick={() => copyGameId(stats.gameId!)}
                   >
                     <CopyIcon />
                   </Button>
                 </div>
               ) : (
-                <div className="text-sm text-muted-foreground">no game id captured yet</div>
+                <div className="text-sm text-muted-foreground">{t("stats.noGameId")}</div>
               )}
             </div>
 
             <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div>
-                <div className="text-muted-foreground">Memory</div>
+                <div className="text-muted-foreground">{t("stats.memory")}</div>
                 <div className="font-mono">
                   {formatKb(
                     stats.memTotalKb != null && stats.memAvailableKb != null
@@ -165,7 +167,7 @@ export function StatsPanel() {
                 </div>
               </div>
               <div>
-                <div className="text-muted-foreground">Disk (worlds)</div>
+                <div className="text-muted-foreground">{t("stats.diskWorlds")}</div>
                 <div className="font-mono">
                   {stats.diskUsed ?? "—"} / {stats.diskSize ?? "—"} (
                   {stats.diskUsePct ?? "—"})
@@ -174,20 +176,20 @@ export function StatsPanel() {
             </div>
 
             <div>
-              <div className="text-sm text-muted-foreground">UDP listening</div>
+              <div className="text-sm text-muted-foreground">{t("stats.udpListening")}</div>
               {stats.udpListening.length > 0 ? (
                 <pre className="overflow-x-auto rounded-md bg-muted p-2 font-mono text-xs">
                   {stats.udpListening.join("\n")}
                 </pre>
               ) : (
-                <div className="text-sm text-muted-foreground">nothing found</div>
+                <div className="text-sm text-muted-foreground">{t("stats.nothingFound")}</div>
               )}
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="mb-1 text-sm text-muted-foreground">Recent log</div>
+              <div className="mb-1 text-sm text-muted-foreground">{t("stats.recentLog")}</div>
               <pre className="min-h-24 flex-1 overflow-y-auto overflow-x-hidden rounded-md bg-muted p-2 font-mono text-xs whitespace-pre-wrap">
-                {stats.recentLogTail || "(empty)"}
+                {stats.recentLogTail || t("stats.empty")}
               </pre>
             </div>
           </>

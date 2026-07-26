@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import "./App.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -19,6 +20,7 @@ import * as api from "@/lib/api";
 import { OperationsProvider } from "@/lib/operations";
 
 function App() {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
@@ -86,7 +88,7 @@ function App() {
     <main className="flex h-screen flex-col bg-background text-foreground">
       <Toaster />
       <DisclaimerDialog />
-      <h1 className="px-4 pt-4 text-lg font-semibold">Core Keeper World Manager</h1>
+      <h1 className="px-4 pt-4 text-lg font-semibold">{t("app.title")}</h1>
 
       {config ? (
         <ConnectionBar
@@ -99,13 +101,13 @@ function App() {
           onDisconnect={handleDisconnect}
         />
       ) : (
-        <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+        <div className="p-4 text-sm text-muted-foreground">{t("app.loading")}</div>
       )}
 
       <Tabs defaultValue="server" className="flex min-h-0 flex-1 flex-col gap-3 p-4">
         <TabsList>
-          <TabsTrigger value="server">Server</TabsTrigger>
-          <TabsTrigger value="audit">Audit</TabsTrigger>
+          <TabsTrigger value="server">{t("app.tabs.server")}</TabsTrigger>
+          <TabsTrigger value="audit">{t("app.tabs.audit")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="server" className="flex min-h-0 flex-1 flex-col gap-4">
@@ -121,11 +123,11 @@ function App() {
           {status === "connected-target" && (
             <Tabs defaultValue="stats" className="flex min-h-0 flex-1 flex-col gap-3">
               <TabsList>
-                <TabsTrigger value="stats">Stats</TabsTrigger>
-                <TabsTrigger value="library">World library</TabsTrigger>
-                <TabsTrigger value="push">Push a world</TabsTrigger>
-                <TabsTrigger value="pull">Pull a world</TabsTrigger>
-                <TabsTrigger value="terminal">Terminal</TabsTrigger>
+                <TabsTrigger value="stats">{t("app.tabs.stats")}</TabsTrigger>
+                <TabsTrigger value="library">{t("app.tabs.library")}</TabsTrigger>
+                <TabsTrigger value="push">{t("app.tabs.push")}</TabsTrigger>
+                <TabsTrigger value="pull">{t("app.tabs.pull")}</TabsTrigger>
+                <TabsTrigger value="terminal">{t("app.tabs.terminal")}</TabsTrigger>
               </TabsList>
               <TabsContent value="stats" className="flex min-h-0 flex-1 flex-col">
                 <StatsPanel />
@@ -148,11 +150,10 @@ function App() {
           {status === "disconnected" && (
             <Card className="w-full">
               <CardHeader>
-                <CardTitle>No active connection</CardTitle>
+                <CardTitle>{t("app.noConnection.title")}</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                Pick or add a profile above, then Connect. First connect to a profile
-                triggers the discovery probe automatically.
+                {t("app.noConnection.body")}
               </CardContent>
             </Card>
           )}
