@@ -84,6 +84,25 @@ This produces a native installer under `src-tauri/target/release/bundle/` — on
 Windows, both an NSIS installer (`nsis/`) and an MSI (`msi/`). The build is
 **unsigned** (no code-signing certificate is configured), so Windows SmartScreen will
 warn on first run; that's expected for a personal/homelab tool and not a build error.
+macOS is the same story with Gatekeeper's "unidentified developer" warning.
+
+### Cross-platform releases via GitHub Actions
+
+Tauri can't cross-compile — a macOS `.app`/`.dmg` has to be built *on* macOS, a Windows
+installer *on* Windows. [`.github/workflows/release.yml`](.github/workflows/release.yml)
+handles this by building on both platforms' native GitHub-hosted runners:
+
+- **Push a tag like `v0.1.0`** to build installers for Windows and macOS (universal:
+  Intel + Apple Silicon in one `.dmg`) and attach them to a new **draft** GitHub
+  Release — review/edit the notes and publish it yourself, nothing goes out
+  automatically.
+- **Or run the workflow manually** (Actions tab → "release" → "Run workflow") to test
+  the build without cutting a release; it uploads the same installers as regular
+  workflow artifacts instead.
+
+Before tagging, bump the version in `src-tauri/tauri.conf.json` and `package.json` to
+match — the installer *filenames* come from `tauri.conf.json`'s version, not the git
+tag, so a mismatch there just looks confusing in the release assets.
 
 ## Data locations
 

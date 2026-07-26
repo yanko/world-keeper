@@ -1,0 +1,83 @@
+name: release
+
+# Builds installers on their native OS (Tauri can't cross-compile the macOS app from
+# Windows/Linux, or vice versa) and attaches them to a GitHub Release.
+#
+# Push a tag like `v0.1.0` to build + create a draft release with the installers
+# attached. Or run this manually (Actions tab -> release -> Run workflow) to test the
+# build without cutting a release — manual runs upload the same installers as
+# downloadable workflow artifacts instead.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ""
+          - platform: macos-latest
+            # Universal binary (Intel + Apple Silicon) so there's one .dmg to hand out
+            # instead of two arch-specific ones.
+            args: "--target universal-apple-darwin"
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Tag push: build + create/update a draft GitHub Release with installers attached.
+      - if: github.event_name == 'push'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Core Keeper World Manager ${{ github.ref_name }}"
+          releaseBody: |
+            See the assets below for the Windows installer (.exe/.msi) and macOS disk
+            image (.dmg). Neither is code-signed — see the README for what that means
+            on first launch.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # Manual run: just build, no release — for trying the pipeline out before you're
+      # ready to actually cut a version.
+      - if: github.event_name == 'workflow_dispatch'
+        run: pnpm tauri build ${{ matrix.args }}
+
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.platform }}
+          path: |
+            src-tauri/target/**/release/bundle/**/*.exe
+            src-tauri/target/**/release/bundle/**/*.msi
+            src-tauri/target/**/release/bundle/**/*.dmg
+          if-no-files-found: error
