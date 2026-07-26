@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogDrawer } from "@/components/ckm/LogDrawer";
 import type { ServerStats } from "@/lib/api";
 import * as api from "@/lib/api";
+import { useOperations } from "@/lib/operations";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -48,6 +49,7 @@ async function copyGameId(id: string) {
 }
 
 export function StatsPanel() {
+  const { activeOperation, push, pull, restore } = useOperations();
   const [stats, setStats] = useState<ServerStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   // `collect()` on the backend is several sequential SSH round-trips (and can be slow
@@ -78,6 +80,15 @@ export function StatsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Stats stays live and available the whole time a push/pull/restore is running (it's
+  // a read-only view over the same connection, not part of the mutual-exclusion group —
+  // see AppState::operation_lock) — so this is a good place to also surface *which* step
+  // it's currently on, updating in step with the same progress events the Push/Pull/
+  // World-library tabs show, without needing to switch back to that tab to check.
+  const currentLog =
+    activeOperation === "push" ? push.log : activeOperation === "pull" ? pull.log : activeOperation === "restore" ? restore.log : null;
+  const currentStep = currentLog && currentLog.length > 0 ? currentLog[currentLog.length - 1].state : null;
+
   return (
     <Card className="flex h-full min-h-0 w-full flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -90,6 +101,16 @@ export function StatsPanel() {
         </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
+        {activeOperation && (
+          <div className="flex items-center gap-2 rounded-md border border-signal/40 bg-signal/10 p-2 text-sm">
+            <Badge className="animate-pulse border-signal bg-signal text-signal-foreground">
+              {activeOperation}
+            </Badge>
+            <span>
+              in progress{currentStep ? ` — ${currentStep}` : ""}
+            </span>
+          </div>
+        )}
         {error && <div className="text-sm text-destructive">{error}</div>}
         {stats && (
           <>

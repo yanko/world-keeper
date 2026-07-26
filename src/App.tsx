@@ -13,8 +13,10 @@ import { PullPanel } from "@/components/ckm/PullPanel";
 import { TerminalPanel } from "@/components/ckm/TerminalPanel";
 import { AuditPanel } from "@/components/ckm/AuditPanel";
 import { WorldLibraryPanel } from "@/components/ckm/WorldLibraryPanel";
+import { DisclaimerDialog } from "@/components/ckm/DisclaimerDialog";
 import type { AppConfig, DiscoveryResult } from "@/lib/api";
 import * as api from "@/lib/api";
+import { OperationsProvider } from "@/lib/operations";
 
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -80,8 +82,10 @@ function App() {
   }
 
   return (
+    <OperationsProvider>
     <main className="flex h-screen flex-col bg-background text-foreground">
       <Toaster />
+      <DisclaimerDialog />
       <h1 className="px-4 pt-4 text-lg font-semibold">Core Keeper World Manager</h1>
 
       {config ? (
@@ -159,6 +163,7 @@ function App() {
         </TabsContent>
       </Tabs>
     </main>
+    </OperationsProvider>
   );
 }
 

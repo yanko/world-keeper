@@ -56,6 +56,7 @@ pub fn run() {
                     session_id,
                     connection: Mutex::new(None),
                     terminal: Mutex::new(None),
+                    operation_lock: Mutex::new(()),
                 }
             });
             app.manage(app_state);

@@ -25,6 +25,15 @@ fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
+/// Push/pull/restore all stop and restart the same live server, so running two at once
+/// isn't just confusing — it's a real corruption risk (two overlapping stop/backup/copy/
+/// start sequences racing each other). `operation_lock` (see `state.rs`) is what
+/// actually prevents that; this is just the error surfaced when `try_lock` on it fails.
+/// The frontend already disables the triggering buttons while one is in flight, so
+/// reaching this in practice means a genuine race slipped past that — worth showing as
+/// a real (if terse) error, not silently swallowing.
+const BUSY: &str = "another operation is already in progress";
+
 // ---- config ----------------------------------------------------------------
 
 #[tauri::command]
@@ -185,10 +194,15 @@ pub async fn connect(
 
 #[tauri::command]
 pub async fn disconnect(state: State<'_, AppState>) -> Result<(), String> {
+    // Never tear down the connection out from under a running push/pull/restore — this
+    // is the one thing `operation_lock` guards for a command that isn't itself one of
+    // the three (see `AppState::operation_lock`'s doc comment).
+    let _op_guard = state.operation_lock.try_lock().map_err(|_| BUSY.to_string())?;
     if let Some(term) = state.terminal.lock().await.take() {
         term.close();
     }
-    if let Some(conn) = state.connection.lock().await.take() {
+    let mut guard = state.connection.lock().await;
+    if let Some(conn) = guard.take() {
         state
             .audit
             .log_event(
@@ -349,14 +363,25 @@ pub async fn confirm_discovery(
 
 // ---- stats -----------------------------------------------------------------
 
-#[tauri::command]
-pub async fn get_stats(state: State<'_, AppState>) -> Result<ServerStats, String> {
+/// Clones the confirmed target out of `state.connection` under a brief lock, then drops
+/// the lock immediately. `SshTarget`/`SshSession` are cheap to clone (the underlying
+/// handle is an `Arc`, shared, not reopened) — this is what lets stats/log-tail polling,
+/// the Terminal, and a long-running push/pull/restore all use the same SSH connection
+/// concurrently instead of queuing behind one held lock. Only push/pull/restore
+/// themselves contend on the separate `operation_lock` (see `commands.rs`'s `BUSY`).
+async fn clone_target(state: &AppState) -> Result<SshTarget, String> {
     let guard = state.connection.lock().await;
     match guard.as_ref() {
-        Some(Connection::Target { target, .. }) => stats::collect(target).await.map_err(err),
+        Some(Connection::Target { target, .. }) => Ok(target.clone()),
         Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
         None => Err("not connected".to_string()),
     }
+}
+
+#[tauri::command]
+pub async fn get_stats(state: State<'_, AppState>) -> Result<ServerStats, String> {
+    let target = clone_target(&state).await?;
+    stats::collect(&target).await.map_err(err)
 }
 
 /// Just the log tail, polled on its own (e.g. by the live log drawer) — deliberately
@@ -364,12 +389,8 @@ pub async fn get_stats(state: State<'_, AppState>) -> Result<ServerStats, String
 /// on every poll tick.
 #[tauri::command]
 pub async fn get_log_tail(state: State<'_, AppState>, lines: u32) -> Result<String, String> {
-    let guard = state.connection.lock().await;
-    match guard.as_ref() {
-        Some(Connection::Target { target, .. }) => target.logs_tail(lines).await.map_err(err),
-        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
-        None => Err("not connected".to_string()),
-    }
+    let target = clone_target(&state).await?;
+    target.logs_tail(lines).await.map_err(err)
 }
 
 // ---- push --------------------------------------------------------------------
@@ -391,28 +412,19 @@ pub async fn push_world(
     state: State<'_, AppState>,
     candidate: LocalWorldCandidate,
 ) -> Result<PushResult, String> {
-    let guard = state.connection.lock().await;
-    match guard.as_ref() {
-        Some(Connection::Target { target, .. }) => {
-            push::run_push(&app, &state.audit, state.session_id, target, &candidate)
-                .await
-                .map_err(err)
-        }
-        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
-        None => Err("not connected".to_string()),
-    }
+    let _op_guard = state.operation_lock.try_lock().map_err(|_| BUSY.to_string())?;
+    let target = clone_target(&state).await?;
+    push::run_push(&app, &state.audit, state.session_id, &target, &candidate)
+        .await
+        .map_err(err)
 }
 
 // ---- pull --------------------------------------------------------------------
 
 #[tauri::command]
 pub async fn list_remote_worlds(state: State<'_, AppState>) -> Result<Vec<RemoteWorldInfo>, String> {
-    let guard = state.connection.lock().await;
-    match guard.as_ref() {
-        Some(Connection::Target { target, .. }) => pull::list_remote_worlds(target).await.map_err(err),
-        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
-        None => Err("not connected".to_string()),
-    }
+    let target = clone_target(&state).await?;
+    pull::list_remote_worlds(&target).await.map_err(err)
 }
 
 /// Runs SPEC §7's pull envelope (stop → download → restart) against the currently
@@ -424,16 +436,11 @@ pub async fn pull_world(
     state: State<'_, AppState>,
     slot: u32,
 ) -> Result<PulledWorld, String> {
-    let guard = state.connection.lock().await;
-    match guard.as_ref() {
-        Some(Connection::Target { target, .. }) => {
-            pull::run_pull(&app, &state.audit, state.session_id, target, slot)
-                .await
-                .map_err(err)
-        }
-        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
-        None => Err("not connected".to_string()),
-    }
+    let _op_guard = state.operation_lock.try_lock().map_err(|_| BUSY.to_string())?;
+    let target = clone_target(&state).await?;
+    pull::run_pull(&app, &state.audit, state.session_id, &target, slot)
+        .await
+        .map_err(err)
 }
 
 /// Saves a previously pulled world (still sitting in a temp dir) as a folder or a
@@ -575,14 +582,9 @@ pub async fn restore_backup(
     backup_path: String,
     slot: u32,
 ) -> Result<RestoreResult, String> {
-    let guard = state.connection.lock().await;
-    match guard.as_ref() {
-        Some(Connection::Target { target, .. }) => {
-            restore::run_restore(&app, &state.audit, state.session_id, target, &backup_path, slot)
-                .await
-                .map_err(err)
-        }
-        Some(Connection::Raw { .. }) => Err("discovery not confirmed yet".to_string()),
-        None => Err("not connected".to_string()),
-    }
+    let _op_guard = state.operation_lock.try_lock().map_err(|_| BUSY.to_string())?;
+    let target = clone_target(&state).await?;
+    restore::run_restore(&app, &state.audit, state.session_id, &target, &backup_path, slot)
+        .await
+        .map_err(err)
 }

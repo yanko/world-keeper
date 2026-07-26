@@ -44,4 +44,11 @@ pub struct AppState {
     pub connection: Mutex<Option<Connection>>,
     /// One terminal session at a time (mirrors "one connection at a time," §2).
     pub terminal: Mutex<Option<TerminalSession>>,
+    /// Held for the whole duration of a push/pull/restore — the *only* thing this
+    /// guards against is two of those three running at once (they all stop/restart the
+    /// same service, so overlapping them is a real corruption risk, not just confusing).
+    /// Deliberately separate from `connection`: reads (stats, log tail) and the Terminal
+    /// need to keep working *during* a push, so they must never contend with this lock,
+    /// only push/pull/restore/disconnect do.
+    pub operation_lock: Mutex<()>,
 }

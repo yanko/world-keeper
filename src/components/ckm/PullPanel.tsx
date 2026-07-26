@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Stepper, type StepDef } from "@/components/ckm/Stepper";
-import type { PullProgress, PulledWorld, PullState, RemoteWorldInfo } from "@/lib/api";
+import { useOperations } from "@/lib/operations";
+import type { PullState, RemoteWorldInfo } from "@/lib/api";
 import * as api from "@/lib/api";
 import { formatBytes, formatMtime } from "@/lib/format";
 
@@ -30,18 +31,15 @@ const PULL_STEPS: StepDef<PullState>[] = [
   { state: "starting", label: "Restart" },
 ];
 
-type Phase = "idle" | "running" | "done" | "error";
-
 export function PullPanel() {
+  const { activeOperation, pull, startPull, resetPull } = useOperations();
   const [worlds, setWorlds] = useState<RemoteWorldInfo[]>([]);
   const [chosenSlot, setChosenSlot] = useState<number | undefined>(undefined);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [log, setLog] = useState<PullProgress[]>([]);
-  const [pulled, setPulled] = useState<PulledWorld | null>(null);
   const [savedPath, setSavedPath] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const globalBusy = activeOperation !== null;
 
   async function refresh() {
     try {
@@ -58,38 +56,22 @@ export function PullPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function startPull() {
+  function confirmAndPull() {
     if (chosenSlot === undefined) return;
     setConfirmOpen(false);
-    setPhase("running");
-    setLog([]);
-    setPulled(null);
     setSavedPath(null);
-    setError(null);
-
-    const unlisten = await api.onPullProgress((p) => setLog((prev) => [...prev, p]));
-    try {
-      const r = await api.pullWorld(chosenSlot);
-      setPulled(r);
-      setPhase("done");
-      toast.success(`World ${r.slot} downloaded — pick where to save it.`);
-    } catch (e) {
-      setError(String(e));
-      setPhase("error");
-      toast.error(String(e));
-    } finally {
-      unlisten();
-    }
+    resetPull();
+    startPull(chosenSlot);
   }
 
   async function saveAs(kind: "folder" | "zip") {
-    if (!pulled) return;
+    if (!pull.result) return;
     try {
       const destination =
-        kind === "folder" ? await api.pickSaveFolder() : await api.saveWorldZip(`world-${pulled.slot}.zip`);
+        kind === "folder" ? await api.pickSaveFolder() : await api.saveWorldZip(`world-${pull.result.slot}.zip`);
       if (!destination || Array.isArray(destination)) return;
       setSaving(true);
-      const finalPath = await api.packagePulledWorld(pulled, destination, kind === "zip");
+      const finalPath = await api.packagePulledWorld(pull.result, destination, kind === "zip");
       setSavedPath(finalPath);
       toast.success(`Saved to ${finalPath}`);
     } catch (e) {
@@ -100,7 +82,6 @@ export function PullPanel() {
   }
 
   const chosen = worlds.find((w) => w.slot === chosenSlot) ?? null;
-  const busy = phase === "running";
 
   return (
     <Card className="flex h-full min-h-0 w-full flex-col">
@@ -108,12 +89,13 @@ export function PullPanel() {
         <CardTitle>Pull a world</CardTitle>
         <CardDescription>
           Stops the live server just long enough to copy a consistent world, restarts
-          immediately, then lets you save it locally.
+          immediately, then lets you save it locally. No guarantee against data loss —
+          keep your own backups.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" disabled={busy} onClick={refresh}>
+          <Button variant="outline" size="sm" disabled={globalBusy} onClick={refresh}>
             Refresh
           </Button>
           {worlds.length > 1 && (
@@ -138,26 +120,32 @@ export function PullPanel() {
           )}
         </div>
 
+        {activeOperation && activeOperation !== "pull" && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            A {activeOperation} is in progress — finish or wait before starting a pull.
+          </div>
+        )}
+
         {chosen && (
-          <Button size="sm" className="w-fit" disabled={busy} onClick={() => setConfirmOpen(true)}>
+          <Button size="sm" className="w-fit" disabled={globalBusy} onClick={() => setConfirmOpen(true)}>
             Pull world {chosen.slot}
           </Button>
         )}
 
-        {(log.length > 0 || phase === "running") && (
+        {(pull.log.length > 0 || pull.running) && (
           <Stepper
             steps={PULL_STEPS}
-            log={log}
+            log={pull.log}
             doneState="done"
             failedStates={["failed"]}
             failedBanner="Failed — a restart was attempted automatically regardless."
           />
         )}
 
-        {phase === "done" && pulled && !savedPath && (
+        {!pull.running && pull.result && !savedPath && (
           <div className="grid gap-2 rounded-md border p-3 text-sm">
             <div className="text-muted-foreground">
-              {formatBytes(pulled.bytes)} downloaded — save world {pulled.slot} as:
+              {formatBytes(pull.result.bytes)} downloaded — save world {pull.result.slot} as:
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" disabled={saving} onClick={() => saveAs("folder")}>
@@ -174,7 +162,7 @@ export function PullPanel() {
           <div className="font-mono text-xs text-muted-foreground">saved to {savedPath}</div>
         )}
 
-        {phase === "error" && error && <div className="text-sm text-destructive">{error}</div>}
+        {!pull.running && pull.error && <div className="text-sm text-destructive">{pull.error}</div>}
       </CardContent>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -190,7 +178,7 @@ export function PullPanel() {
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={startPull}>
+            <Button variant="destructive" disabled={globalBusy} onClick={confirmAndPull}>
               Stop server &amp; pull
             </Button>
           </DialogFooter>

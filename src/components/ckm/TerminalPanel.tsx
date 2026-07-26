@@ -7,6 +7,7 @@ import "@xterm/xterm/css/xterm.css";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import * as api from "@/lib/api";
+import { useOperations } from "@/lib/operations";
 
 /// SPEC §16: a real interactive shell over the same SSH connection, not another
 /// `exec()` call. Manual start/stop — this is a genuine, unsandboxed root shell, not
@@ -15,10 +16,12 @@ export function TerminalPanel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
+  const { activeOperation } = useOperations();
 
-  // Best-effort: close the remote session if the whole panel unmounts (e.g. switching
-  // away while connected elsewhere doesn't unmount it — Tabs keep content mounted — but
-  // disconnecting from the server does, via App's own teardown).
+  // Best-effort: close the remote session if the whole panel unmounts. Base UI's Tabs
+  // unmounts inactive panels by default, so switching to another tab tears this down —
+  // that's fine for the terminal itself (reopening is cheap), unlike push/pull/restore
+  // progress, which is why *that* state was moved up into a provider instead.
   useEffect(() => {
     return () => {
       api.terminalClose().catch(() => {});
@@ -111,11 +114,17 @@ export function TerminalPanel() {
           </Button>
         )}
       </CardHeader>
-      <CardContent className="min-h-0 flex-1">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-2">
+        {activeOperation && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            A {activeOperation} is in progress — commands run here can race its own
+            stop/start sequence. Best to wait it out.
+          </div>
+        )}
         {open ? (
-          <div ref={containerRef} className="h-full min-h-64 w-full overflow-hidden rounded-md bg-black p-1" />
+          <div ref={containerRef} className="min-h-64 w-full flex-1 overflow-hidden rounded-md bg-black p-1" />
         ) : (
-          <div className="flex h-full min-h-64 items-center justify-center rounded-md border text-sm text-muted-foreground">
+          <div className="flex min-h-64 flex-1 items-center justify-center rounded-md border text-sm text-muted-foreground">
             No active session. Click "Start terminal session" to open a real shell.
           </div>
         )}

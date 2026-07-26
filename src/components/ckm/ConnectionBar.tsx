@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import type { AppConfig, AuthMethod, Profile } from "@/lib/api";
 import * as api from "@/lib/api";
+import { useOperations } from "@/lib/operations";
 import { ThemeToggle } from "@/components/ckm/ThemeToggle";
 
 export type ConnectionStatus =
@@ -60,6 +61,7 @@ export function ConnectionBar({
   const [connecting, setConnecting] = useState(false);
   const [keyAuthOpen, setKeyAuthOpen] = useState(false);
   const [settingUpKeyAuth, setSettingUpKeyAuth] = useState(false);
+  const { activeOperation } = useOperations();
 
   const selectedProfile = config.profiles.find((p) => p.id === selectedProfileId) ?? null;
   const canEditOrDelete = status === "disconnected" && !!selectedProfile;
@@ -212,7 +214,12 @@ export function ConnectionBar({
         </SelectContent>
       </Select>
 
-      <Button variant="outline" size="sm" onClick={openNewProfileDialog}>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={status !== "disconnected"}
+        onClick={openNewProfileDialog}
+      >
         New profile
       </Button>
 
@@ -245,12 +252,24 @@ export function ConnectionBar({
           Connect
         </Button>
       ) : (
-        <Button size="sm" variant="destructive" onClick={onDisconnect}>
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={activeOperation !== null}
+          title={activeOperation ? `A ${activeOperation} is in progress` : undefined}
+          onClick={onDisconnect}
+        >
           Disconnect
         </Button>
       )}
 
       <Badge variant={statusVariant[status]}>{statusLabel[status]}</Badge>
+
+      {activeOperation && (
+        <Badge variant="secondary" className="animate-pulse">
+          {activeOperation} in progress…
+        </Badge>
+      )}
 
       {status !== "disconnected" && selectedProfile?.auth === "password" && (
         <Button

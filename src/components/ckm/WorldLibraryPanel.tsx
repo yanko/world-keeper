@@ -12,7 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Stepper, type StepDef } from "@/components/ckm/Stepper";
-import type { BackupRow, RemoteWorldInfo, RestoreProgress, RestoreState } from "@/lib/api";
+import { useOperations } from "@/lib/operations";
+import type { BackupRow, RemoteWorldInfo, RestoreState } from "@/lib/api";
 import * as api from "@/lib/api";
 import { formatBytes, formatMtime } from "@/lib/format";
 
@@ -33,15 +34,14 @@ function formatTs(ts: string): string {
 }
 
 export function WorldLibraryPanel() {
+  const { activeOperation, restore, startRestore, resetRestore } = useOperations();
   const [worlds, setWorlds] = useState<RemoteWorldInfo[]>([]);
   const [backups, setBackups] = useState<BackupRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [target, setTarget] = useState<BackupRow | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [log, setLog] = useState<RestoreProgress[]>([]);
-  const [result, setResult] = useState<api.RestoreResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+
+  const globalBusy = activeOperation !== null;
 
   async function refresh() {
     setLoading(true);
@@ -58,34 +58,21 @@ export function WorldLibraryPanel() {
 
   useEffect(() => {
     refresh();
-  }, []);
+    // Re-list once a restore finishes — a new safety backup was just created, and the
+    // "live on server" section changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restore.result]);
 
   function askRestore(backup: BackupRow) {
     setTarget(backup);
     setConfirmOpen(true);
   }
 
-  async function doRestore() {
+  function doRestore() {
     if (!target?.lxcPath || target.slot == null) return;
     setConfirmOpen(false);
-    setRestoring(true);
-    setLog([]);
-    setResult(null);
-    setError(null);
-
-    const unlisten = await api.onRestoreProgress((p) => setLog((prev) => [...prev, p]));
-    try {
-      const r = await api.restoreBackup(target.lxcPath, target.slot);
-      setResult(r);
-      toast.success(`World ${r.slot} restored from backup.`);
-      refresh();
-    } catch (e) {
-      setError(String(e));
-      toast.error(String(e));
-    } finally {
-      unlisten();
-      setRestoring(false);
-    }
+    resetRestore();
+    startRestore(target.lxcPath, target.slot);
   }
 
   return (
@@ -93,13 +80,23 @@ export function WorldLibraryPanel() {
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle>World library</CardTitle>
-          <CardDescription>What's live on the server, and every dated backup this app has made.</CardDescription>
+          <CardDescription>
+            What's live on the server, and every dated backup this app has made.
+            Restoring is the same safe envelope as a push — no guarantee against data
+            loss, keep your own backups.
+          </CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
         </Button>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        {activeOperation && activeOperation !== "restore" && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            A {activeOperation} is in progress — finish or wait before starting a restore.
+          </div>
+        )}
+
         <div>
           <div className="mb-1 text-sm text-muted-foreground">Live on server</div>
           {worlds.length > 0 ? (
@@ -147,7 +144,7 @@ export function WorldLibraryPanel() {
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={restoring || !b.lxcPath || b.slot == null}
+                      disabled={globalBusy || !b.lxcPath || b.slot == null}
                       onClick={() => askRestore(b)}
                     >
                       Restore
@@ -159,32 +156,34 @@ export function WorldLibraryPanel() {
           )}
         </div>
 
-        {(log.length > 0 || restoring) && (
+        {(restore.log.length > 0 || restore.running) && (
           <Stepper
             steps={RESTORE_STEPS}
-            log={log}
+            log={restore.log}
             doneState="done"
             failedStates={["failed", "rollingBack"]}
             failedBanner="Rolled back — a safety backup was restored and the server restarted automatically."
           />
         )}
 
-        {result && (
+        {!restore.running && restore.result && (
           <div className="rounded-md border p-2 text-sm text-muted-foreground">
-            Restored world {result.slot}
-            {result.gameId && (
+            Restored world {restore.result.slot}
+            {restore.result.gameId && (
               <>
                 {" "}
-                · game id <span className="font-mono">{result.gameId}</span>
+                · game id <span className="font-mono">{restore.result.gameId}</span>
               </>
             )}
-            {result.backupPath && (
-              <div className="font-mono text-xs">safety backup: {result.backupPath}</div>
+            {restore.result.backupPath && (
+              <div className="font-mono text-xs">safety backup: {restore.result.backupPath}</div>
             )}
           </div>
         )}
 
-        {error && <div className="text-sm text-destructive">{error}</div>}
+        {!restore.running && restore.error && (
+          <div className="text-sm text-destructive">{restore.error}</div>
+        )}
       </CardContent>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -201,7 +200,7 @@ export function WorldLibraryPanel() {
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={doRestore}>
+            <Button variant="destructive" disabled={globalBusy} onClick={doRestore}>
               Stop server &amp; restore
             </Button>
           </DialogFooter>

@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Stepper, type StepDef } from "@/components/ckm/Stepper";
-import type { LocalWorldCandidate, PushProgress, PushResult, PushState } from "@/lib/api";
+import { useOperations } from "@/lib/operations";
+import type { LocalWorldCandidate, PushState } from "@/lib/api";
 import * as api from "@/lib/api";
 import { formatBytes, formatMtime } from "@/lib/format";
 
@@ -39,19 +40,16 @@ const MAIN_STEPS: StepDef<PushState>[] = [
   { state: "verifying", label: "Verify" },
 ];
 
-type Phase = "idle" | "resolved" | "running" | "done" | "error";
-
 export function PushPanel() {
+  const { activeOperation, push, startPush, resetPush } = useOperations();
   const [candidates, setCandidates] = useState<LocalWorldCandidate[]>([]);
   const [chosenSlot, setChosenSlot] = useState<number | undefined>(undefined);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [log, setLog] = useState<PushProgress[]>([]);
-  const [result, setResult] = useState<PushResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const chosen = candidates.find((c) => c.slot === chosenSlot) ?? null;
-  const busy = phase === "running";
+  // Disabled while *any* operation is running, not just this one — push/pull/restore
+  // all stop and restart the same server, so they can never safely overlap.
+  const globalBusy = activeOperation !== null;
 
   async function pickAndResolve(kind: "file" | "folder") {
     try {
@@ -60,36 +58,16 @@ export function PushPanel() {
       const found = await api.resolveLocalWorld(path);
       setCandidates(found);
       setChosenSlot(found[0]?.slot);
-      setPhase("resolved");
-      setLog([]);
-      setResult(null);
-      setError(null);
+      resetPush();
     } catch (e) {
       toast.error(String(e));
     }
   }
 
-  async function startPush() {
+  function confirmAndPush() {
     if (!chosen) return;
     setConfirmOpen(false);
-    setPhase("running");
-    setLog([]);
-    setResult(null);
-    setError(null);
-
-    const unlisten = await api.onPushProgress((p) => setLog((prev) => [...prev, p]));
-    try {
-      const r = await api.pushWorld(chosen);
-      setResult(r);
-      setPhase("done");
-      toast.success(`World ${r.slot} swapped in.`);
-    } catch (e) {
-      setError(String(e));
-      setPhase("error");
-      toast.error(String(e));
-    } finally {
-      unlisten();
-    }
+    startPush(chosen);
   }
 
   return (
@@ -98,18 +76,25 @@ export function PushPanel() {
         <CardTitle>Push a world</CardTitle>
         <CardDescription>
           Stops the live server, backs up the current world, swaps yours in, restarts,
-          and verifies — auto-rolls back on any failure.
+          and verifies — auto-rolls back on any failure. No guarantee against data
+          loss — keep your own backups.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" disabled={busy} onClick={() => pickAndResolve("file")}>
+          <Button variant="outline" size="sm" disabled={globalBusy} onClick={() => pickAndResolve("file")}>
             Choose file (.zip or .world.gzip)
           </Button>
-          <Button variant="outline" size="sm" disabled={busy} onClick={() => pickAndResolve("folder")}>
+          <Button variant="outline" size="sm" disabled={globalBusy} onClick={() => pickAndResolve("folder")}>
             Choose folder
           </Button>
         </div>
+
+        {activeOperation && activeOperation !== "push" && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            A {activeOperation} is in progress — finish or wait before starting a push.
+          </div>
+        )}
 
         {candidates.length > 0 && (
           <div className="grid gap-2 rounded-md border p-3">
@@ -149,47 +134,47 @@ export function PushPanel() {
                 )}
               </div>
             )}
-            <Button size="sm" className="w-fit" disabled={!chosen || busy} onClick={() => setConfirmOpen(true)}>
+            <Button size="sm" className="w-fit" disabled={!chosen || globalBusy} onClick={() => setConfirmOpen(true)}>
               Push this world
             </Button>
           </div>
         )}
 
-        {(log.length > 0 || phase === "running") && (
+        {(push.log.length > 0 || push.running) && (
           <Stepper
             steps={MAIN_STEPS}
-            log={log}
+            log={push.log}
             doneState="done"
             failedStates={["failed", "rollingBack"]}
             failedBanner="Rolled back — server restart was attempted automatically."
           />
         )}
 
-        {phase === "done" && result && (
+        {!push.running && push.result && (
           <div className="grid gap-1 rounded-md border p-3 text-sm">
             <div className="flex items-center gap-2">
               <Badge className="border-signal bg-signal text-signal-foreground">Done</Badge>
-              <span>world {result.slot} is live</span>
+              <span>world {push.result.slot} is live</span>
             </div>
             <div className="text-muted-foreground">
-              {formatBytes(result.bytesUploaded)} uploaded
-              {result.gameId && (
+              {formatBytes(push.result.bytesUploaded)} uploaded
+              {push.result.gameId && (
                 <>
                   {" "}
-                  · game id <span className="font-mono">{result.gameId}</span>
+                  · game id <span className="font-mono">{push.result.gameId}</span>
                 </>
               )}
             </div>
-            {result.backupPath && (
+            {push.result.backupPath && (
               <div className="font-mono text-xs text-muted-foreground">
-                previous world backed up to {result.backupPath}
+                previous world backed up to {push.result.backupPath}
               </div>
             )}
           </div>
         )}
 
-        {phase === "error" && error && (
-          <div className="text-sm text-destructive">{error}</div>
+        {!push.running && push.error && (
+          <div className="text-sm text-destructive">{push.error}</div>
         )}
       </CardContent>
 
@@ -207,7 +192,7 @@ export function PushPanel() {
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={startPush}>
+            <Button variant="destructive" disabled={globalBusy} onClick={confirmAndPush}>
               Stop server &amp; push
             </Button>
           </DialogFooter>

@@ -43,6 +43,15 @@ impl client::Handler for Client {
 
 /// A live SSH connection. Exposes only transport-level primitives — no knowledge of
 /// systemd/docker/world paths belongs here.
+///
+/// `Clone` is cheap and intentional: `handle` is an `Arc`, so cloning shares the same
+/// underlying multiplexed connection rather than opening a new one. This is what lets a
+/// long-running push/pull/restore, the Terminal, and Stats polling all use their own
+/// independent SSH channels concurrently instead of contending over one shared borrow
+/// (see `commands.rs` — command handlers clone the target out of `state.connection`
+/// under a brief lock, rather than holding that lock for the operation's whole
+/// duration).
+#[derive(Clone)]
 pub struct SshSession {
     handle: Arc<Handle<Client>>,
     pub host: String,
@@ -275,6 +284,7 @@ impl SshSession {
 /// The SSH-transport `ServerTarget`. All ServiceKind-specific behaviour (how to
 /// stop/start, where perms need fixing) branches inside this impl only — callers
 /// (state machine, discovery confirmation) only ever see the trait.
+#[derive(Clone)]
 pub struct SshTarget {
     session: SshSession,
     service_kind: ServiceKind,
