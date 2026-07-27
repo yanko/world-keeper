@@ -37,11 +37,13 @@ export function TerminalPanel() {
     if (!open || !containerRef.current) return;
 
     const term = new Terminal({
-      // Consolas — the classic Windows terminal/editor monospace face — with the
-      // app's own mono font and generic fallbacks behind it for non-Windows builds
-      // (Consolas isn't installed there).
-      fontFamily: "Consolas, var(--font-mono), ui-monospace, monospace",
-      fontSize: 13,
+      // JetBrains Mono — designed specifically for code/terminal legibility (tall
+      // x-height, unambiguous 0/O and 1/l/I) and bundled with the app via fontsource, so
+      // it renders the same on every platform this app ships for, not just Windows.
+      fontFamily: "'JetBrains Mono Variable', var(--font-mono), ui-monospace, monospace",
+      fontSize: 14,
+      lineHeight: 1.35,
+      letterSpacing: 0.5,
       cursorBlink: true,
       convertEol: true,
       theme: { background: "#00000000" },
