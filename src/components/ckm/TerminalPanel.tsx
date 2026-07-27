@@ -107,7 +107,7 @@ export function TerminalPanel() {
 
   return (
     <Card className="flex h-full min-h-0 w-full flex-col">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <div>
           <CardTitle>{t("terminal.title")}</CardTitle>
           <CardDescription>{t("terminal.desc")}</CardDescription>

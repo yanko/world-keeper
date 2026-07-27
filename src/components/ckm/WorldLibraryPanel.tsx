@@ -74,7 +74,7 @@ export function WorldLibraryPanel() {
 
   return (
     <Card className="flex h-full min-h-0 w-full flex-col">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <div>
           <CardTitle>{t("worldLibrary.title")}</CardTitle>
           <CardDescription>{t("worldLibrary.desc")}</CardDescription>

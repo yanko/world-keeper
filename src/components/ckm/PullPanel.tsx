@@ -149,7 +149,7 @@ export function PullPanel() {
             <div className="text-muted-foreground">
               {t("pull.downloadedPrompt", { size: formatBytes(pull.result.bytes), slot: pull.result.slot })}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" disabled={saving} onClick={() => saveAs("folder")}>
                 {t("pull.saveFolder")}
               </Button>

@@ -93,9 +93,9 @@ export function StatsPanel() {
 
   return (
     <Card className="flex h-full min-h-0 w-full flex-col">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle>{t("stats.title")}</CardTitle>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <LogDrawer />
           <Button variant="outline" size="sm" onClick={refresh}>
             {t("stats.refresh")}
