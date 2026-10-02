@@ -123,6 +123,12 @@ Credential Manager), never in a plaintext file.
 - [CONTEXT.md](CONTEXT.md) — handoff notes: the homelab environment this was built
   against (details genericized) and the reasoning behind the key design decisions.
 
+## Credits
+
+Built by Yanko with [Claude Code](https://claude.com/claude-code). The design was
+worked out up front in [SPEC.md](SPEC.md) and [CONTEXT.md](CONTEXT.md), then built in
+Claude Code against a real homelab server.
+
 ## License
 
 [MIT](LICENSE) — this is a homelab tool, provided as-is with no warranty; see
